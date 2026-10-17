@@ -6,4 +6,4 @@ Real-time Kerr black hole renderer in raw WebGPU, delivered as one self-containe
 
 | Project | Status | Doc |
 |---|---|---|
-| Kerr black hole renderer | Live at kerr-black-hole-roan.vercel.app (orbit-only, new star field); Safari unverified | [projectDocs/blackhole-renderer.md](projectDocs/blackhole-renderer.md) |
+| Kerr black hole renderer | Live with analytics; code at github.com/SkyWalkerPS/kerr-black-hole; Vercel–GitHub link pending; Safari unverified | [projectDocs/blackhole-renderer.md](projectDocs/blackhole-renderer.md) |
