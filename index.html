@@ -1,0 +1,2502 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kerr Black Hole</title>
+<link rel="icon" href="data:,">
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  if (location.protocol === 'https:') {
+    const vercelAnalyticsScript = document.createElement('script');
+    vercelAnalyticsScript.defer = true;
+    vercelAnalyticsScript.src = '/_vercel/insights/script.js';
+    document.head.appendChild(vercelAnalyticsScript);
+  }
+</script>
+<style>
+  :root {
+    color-scheme: dark;
+    --glass: rgba(16, 13, 11, 0.58);
+    --glass-edge: rgba(255, 236, 214, 0.09);
+    --ink: #f1eadf;
+    --ink-soft: rgba(241, 234, 223, 0.64);
+    --ink-faint: rgba(241, 234, 223, 0.36);
+    --track: rgba(241, 234, 223, 0.16);
+    --disk-color: #ffd9b0;
+  }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  body {
+    font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Helvetica Neue", system-ui, sans-serif;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; cursor: grab; }
+  #view.is-dragging { cursor: grabbing; }
+  .panel {
+    position: fixed; top: 16px; left: 16px; width: 276px; box-sizing: border-box;
+    padding: 14px 16px 14px; border-radius: 14px;
+    background: var(--glass); border: 1px solid var(--glass-edge);
+    -webkit-backdrop-filter: blur(22px) saturate(1.15); backdrop-filter: blur(22px) saturate(1.15);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.38);
+    transition: opacity 160ms ease, transform 160ms ease, visibility 160ms;
+    max-height: calc(100vh - 32px); overflow-y: auto;
+  }
+  .panel.is-hidden { opacity: 0; transform: translateY(-6px); visibility: hidden; pointer-events: none; }
+  .readout { display: grid; grid-template-columns: auto 1fr; align-items: baseline; column-gap: 12px; margin-bottom: 14px; }
+  .readout-fps { font-size: 30px; font-weight: 300; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1; }
+  .readout-fps small { font-size: 12px; font-weight: 400; color: var(--ink-soft); letter-spacing: 0; margin-left: 3px; }
+  .readout-detail { color: var(--ink-soft); font-size: 12px; font-variant-numeric: tabular-nums; line-height: 1.35; text-align: right; }
+  .control { margin: 0 0 11px; }
+  .control-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 3px; }
+  .control-head label { color: var(--ink-soft); }
+  .control-head output { font-variant-numeric: tabular-nums; }
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 18px; margin: 0; background: transparent; cursor: pointer; }
+  input[type=range]::-webkit-slider-runnable-track { height: 3px; border-radius: 2px; background: var(--track); }
+  input[type=range]::-moz-range-track { height: 3px; border-radius: 2px; background: var(--track); }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none; width: 13px; height: 13px; margin-top: -5px; border-radius: 50%;
+    background: #fff7ec; box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.35), 0 0 10px var(--disk-color);
+  }
+  input[type=range]::-moz-range-thumb { width: 13px; height: 13px; border: 0; border-radius: 50%; background: #fff7ec; box-shadow: 0 0 10px var(--disk-color); }
+  #temperature::-webkit-slider-runnable-track { height: 5px; margin-top: 0; background: var(--blackbody-ramp, var(--track)); }
+  #temperature::-moz-range-track { height: 5px; background: var(--blackbody-ramp, var(--track)); }
+  #temperature::-webkit-slider-thumb { margin-top: -4px; }
+  input[type=range]:focus-visible { outline: 1px solid var(--disk-color); outline-offset: 2px; border-radius: 4px; }
+  .segmented { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 2px; border-radius: 9px; background: rgba(241, 234, 223, 0.08); margin-top: 4px; }
+  .segmented button {
+    font: inherit; font-size: 12px; color: var(--ink-soft); background: transparent; border: 0; border-radius: 7px; padding: 6px 4px; cursor: pointer;
+  }
+  .segmented button[aria-pressed=true] { color: #1a1410; background: var(--disk-color); }
+  .segmented button:focus-visible { outline: 1px solid var(--disk-color); outline-offset: 1px; }
+  .keys { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; row-gap: 3px; margin: 16px 0 0; color: var(--ink-faint); font-size: 12px; line-height: 1.45; }
+  .keys dt { color: var(--ink-soft); white-space: nowrap; }
+  .keys dd { margin: 0; }
+  .control-head span { color: var(--ink-soft); }
+  .hint {
+    position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
+    padding: 8px 14px; border-radius: 999px; background: var(--glass); border: 1px solid var(--glass-edge);
+    -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
+    color: var(--ink-soft); white-space: nowrap; transition: opacity 600ms ease; pointer-events: none;
+  }
+  .hint.is-hidden { opacity: 0; }
+  .notice {
+    position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; background: #000;
+  }
+  .notice[hidden] { display: none; }
+  .notice-card { max-width: 460px; line-height: 1.6; color: var(--ink-soft); }
+  .notice-card h1 { font-size: 20px; font-weight: 500; color: var(--ink); margin: 0 0 10px; letter-spacing: -0.01em; }
+  .notice-card ol { padding-left: 20px; margin: 8px 0; }
+  .notice-card code { color: var(--ink); }
+  @media (prefers-reduced-motion: reduce) { .panel, .hint { transition: none; } }
+</style>
+</head>
+<body>
+<canvas id="view" tabindex="0" aria-label="Real-time rendering of a spinning black hole"></canvas>
+
+<aside class="panel" id="panel" aria-label="Settings">
+  <div class="readout">
+    <div class="readout-fps"><span id="fps">--</span><small>fps</small></div>
+    <div class="readout-detail"><span id="gpu-time">--</span> ms on the GPU<br><span id="render-scale">--</span></div>
+  </div>
+  <div class="control">
+    <div class="control-head"><label for="spin">Spin</label><output id="spin-value" for="spin"></output></div>
+    <input id="spin" type="range" min="0" max="0.998" step="0.001">
+  </div>
+  <div class="control">
+    <div class="control-head"><label for="temperature">Disk temperature</label><output id="temperature-value" for="temperature"></output></div>
+    <input id="temperature" type="range" min="0" max="1" step="0.001">
+  </div>
+  <div class="control">
+    <div class="control-head"><label for="tilt">Disk tilt</label><output id="tilt-value" for="tilt"></output></div>
+    <input id="tilt" type="range" min="-90" max="90" step="1">
+  </div>
+  <div class="control">
+    <div class="control-head"><label for="steps">Ray steps</label><output id="steps-value" for="steps"></output></div>
+    <input id="steps" type="range" min="32" max="512" step="8">
+  </div>
+  <div class="control">
+    <div class="control-head"><label for="exposure">Exposure over auto</label><output id="exposure-value" for="exposure"></output></div>
+    <input id="exposure" type="range" min="-4" max="4" step="0.1">
+  </div>
+  <div class="control">
+    <div class="control-head"><span id="color-label">Color</span></div>
+    <div class="segmented" role="group" aria-labelledby="color-label">
+      <button type="button" id="color-physical" aria-pressed="true">Physically accurate</button>
+      <button type="button" id="color-cinematic" aria-pressed="false">Cinematic</button>
+    </div>
+  </div>
+  <dl class="keys">
+    <dt>Drag</dt><dd>orbit the hole</dd>
+    <dt>Scroll</dt><dd>zoom</dd>
+    <dt>Arrows</dt><dd>orbit</dd>
+    <dt>+ −</dt><dd>zoom</dd>
+    <dt>F</dt><dd>full screen</dd>
+    <dt>H</dt><dd>hide this panel</dd>
+  </dl>
+</aside>
+
+<div class="hint is-hidden" id="hint">Drag to orbit, scroll or pinch to zoom.</div>
+
+<div class="notice" id="notice" hidden>
+  <div class="notice-card" id="notice-card"></div>
+</div>
+
+<script type="module">
+const searchParams = new URLSearchParams(location.search);
+const numberParam = (name, fallback) => {
+  const raw = searchParams.get(name);
+  const parsed = raw === null ? NaN : Number(raw);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const settings = {
+  spin: numberParam('spin', 0.9),
+  diskTemperature: numberParam('temperature', 6000),
+  diskTilt: numberParam('tilt', 0),
+  maxSteps: numberParam('steps', 192),
+  exposure: numberParam('exposure', 0),
+  colorMode: searchParams.get('color') === 'cinematic' ? 'cinematic' : 'physical',
+  bloomStrength: numberParam('bloom', 0.012),
+  grainStrength: numberParam('grain', 0.03),
+  skyBrightness: numberParam('sky', 1),
+  starBrightness: numberParam('stars', 1),
+  fieldOfViewDegrees: numberParam('fov', 110),
+  timeScale: numberParam('timescale', 12),
+  debugView: numberParam('debug', 0),
+  compositeFeatureMask: numberParam('features', 15),
+};
+const frozenTime = searchParams.has('time') ? numberParam('time', 0) : null;
+const pinnedScale = searchParams.has('scale') ? Math.min(Math.max(numberParam('scale', 1), 0.1), 1) : null;
+const hideHint = searchParams.get('hint') === '0';
+const PANEL_MIN_START_WIDTH = 700;
+
+const DISK_OUTER_RADIUS = 24;
+const TEMPERATURE_SLIDER_MIN = 1500;
+const TEMPERATURE_SLIDER_MAX = 40000;
+const BLACKBODY_TABLE_SIZE = 512;
+const BLACKBODY_LOG2_MIN = Math.log2(250);
+const BLACKBODY_LOG2_MAX = Math.log2(400000);
+const GALAXY_FACE_SIZE = 1024;
+const DISK_NOISE_WIDTH = 2048;
+const AUTO_EXPOSURE_PERCENTILE = 0.995;
+const AUTO_EXPOSURE_MIDTONE_KEY = 0.32;
+const AUTO_EXPOSURE_HIGHLIGHT_LIMIT = 6;
+const AUTO_EXPOSURE_DISK_RANGE_STOPS = 8;
+const AUTO_EXPOSURE_MIN = 0.02;
+const AUTO_EXPOSURE_MAX = 6;
+const AUTO_EXPOSURE_SECONDS = 0.6;
+const DISK_NOISE_HEIGHT = 512;
+const TARGET_FRAME_MS = 1000 / 60;
+const GPU_TARGET_MS = 11;
+const RENDER_TARGET_SCALE_STEP = 0.1;
+const RENDER_TARGET_SHRINK_FRACTION = 0.45;
+const STAR_PSF_RADIUS_PIXELS = 1.35;
+const STAR_HALO_CORE_PIXELS = 1.1;
+const STAR_HALO_FALLOFF_POWER = 2.2;
+const STAR_FLUX_AT_MAGNITUDE_ZERO = 1.6e-4;
+function fitStarColorPolynomials(table) {
+  const samples = [];
+  for (let i = 0; i < BLACKBODY_TABLE_SIZE; i++) {
+    const log2Temperature = BLACKBODY_LOG2_MIN + (BLACKBODY_LOG2_MAX - BLACKBODY_LOG2_MIN) * (i / (BLACKBODY_TABLE_SIZE - 1));
+    const coordinate = (log2Temperature - 13) / 2;
+    if (coordinate >= -1.25 && coordinate <= 1.25) samples.push([coordinate, table[i * 4], table[i * 4 + 1], table[i * 4 + 2], table[i * 4 + 3]]);
+  }
+  const fitChannel = (channel) => {
+    const normal = Array.from({ length: 4 }, () => new Float64Array(5));
+    for (const sample of samples) {
+      const powers = [1, sample[0], sample[0] ** 2, sample[0] ** 3];
+      for (let row = 0; row < 4; row++) {
+        for (let column = 0; column < 4; column++) normal[row][column] += powers[row] * powers[column];
+        normal[row][4] += powers[row] * sample[channel];
+      }
+    }
+    for (let pivot = 0; pivot < 4; pivot++) {
+      for (let row = pivot + 1; row < 4; row++) {
+        const factor = normal[row][pivot] / normal[pivot][pivot];
+        for (let column = pivot; column < 5; column++) normal[row][column] -= factor * normal[pivot][column];
+      }
+    }
+    const solution = new Array(4).fill(0);
+    for (let row = 3; row >= 0; row--) {
+      let value = normal[row][4];
+      for (let column = row + 1; column < 4; column++) value -= normal[row][column] * solution[column];
+      solution[row] = value / normal[row][row];
+    }
+    return solution;
+  };
+  return { red: fitChannel(1), green: fitChannel(2), blue: fitChannel(3), logLuminance: fitChannel(4) };
+}
+
+const STAR_COLOR_FIT = fitStarColorPolynomials(buildBlackbodyTable());
+
+const STAR_LAYERS = [
+  { cellsPerFace: 5, presence: 0.5, bandPresenceGain: 0, brightestMagnitude: -1.5, faintestMagnitude: 1.0, haloRadiusPixels: 9, haloFraction: 0.12 },
+  { cellsPerFace: 16, presence: 0.5, bandPresenceGain: 0, brightestMagnitude: 1.0, faintestMagnitude: 3.5, haloRadiusPixels: 5, haloFraction: 0.1 },
+  { cellsPerFace: 50, presence: 0.4, bandPresenceGain: 0.4, brightestMagnitude: 3.5, faintestMagnitude: 6.0, haloRadiusPixels: STAR_PSF_RADIUS_PIXELS, haloFraction: 0 },
+  { cellsPerFace: 158, presence: 0.3, bandPresenceGain: 0.6, brightestMagnitude: 6.0, faintestMagnitude: 8.5, haloRadiusPixels: STAR_PSF_RADIUS_PIXELS, haloFraction: 0 },
+  { cellsPerFace: 500, presence: 0.0, bandPresenceGain: 0.85, brightestMagnitude: 8.5, faintestMagnitude: 11.0, haloRadiusPixels: STAR_PSF_RADIUS_PIXELS, haloFraction: 0 },
+].map((layer) => ({
+  haloRadiusPixels: layer.haloRadiusPixels,
+  haloFraction: layer.haloFraction,
+  cellsPerWarpedUnit: layer.cellsPerFace / 2,
+  presence: layer.presence,
+  bandPresenceGain: layer.bandPresenceGain,
+  inverseFluxBrightest: Math.pow(10, 0.4 * layer.brightestMagnitude),
+  inverseFluxFaintest: Math.pow(10, 0.4 * layer.faintestMagnitude),
+  fluxPerCellAtMagnitudeZero: STAR_FLUX_AT_MAGNITUDE_ZERO * 6 * layer.cellsPerFace * layer.cellsPerFace / (4 * Math.PI),
+}));
+
+function horizonRadius(spin) {
+  return 1 + Math.sqrt(1 - spin * spin);
+}
+
+function iscoRadius(spin) {
+  const z1 = 1 + Math.cbrt(1 - spin * spin) * (Math.cbrt(1 + spin) + Math.cbrt(1 - spin));
+  const z2 = Math.sqrt(3 * spin * spin + z1 * z1);
+  return 3 + z2 - Math.sqrt((3 - z1) * (3 + z1 + 2 * z2));
+}
+
+function pageThorneDiskModel(spin) {
+  const a = Math.min(Math.max(spin, 1e-4), 0.9985);
+  const innerRadius = iscoRadius(a);
+  const x0 = Math.sqrt(innerRadius);
+  const third = Math.acos(a) / 3;
+  const x1 = 2 * Math.cos(third - Math.PI / 3);
+  const x2 = 2 * Math.cos(third + Math.PI / 3);
+  const x3 = -2 * Math.cos(third);
+  const weight1 = (3 * (x1 - a) ** 2) / (x1 * (x1 - x2) * (x1 - x3));
+  const weight2 = (3 * (x2 - a) ** 2) / (x2 * (x2 - x1) * (x2 - x3));
+  const weight3 = (3 * (x3 - a) ** 2) / (x3 * (x3 - x1) * (x3 - x2));
+  const flux = (radius) => {
+    const x = Math.sqrt(radius);
+    if (x <= x0) return 0;
+    const bracket = x - x0 - 1.5 * a * Math.log(x / x0)
+      - weight1 * Math.log((x - x1) / (x0 - x1))
+      - weight2 * Math.log((x - x2) / (x0 - x2))
+      - weight3 * Math.log((x - x3) / (x0 - x3));
+    return Math.max(bracket, 0) / (x ** 4 * (x ** 3 - 3 * x + 2 * a));
+  };
+  let maxFlux = 0;
+  let peakRadius = innerRadius;
+  for (let i = 1; i <= 6000; i++) {
+    const radius = innerRadius * Math.pow(40, i / 6000);
+    const value = flux(radius);
+    if (value > maxFlux) { maxFlux = value; peakRadius = radius; }
+  }
+  return {
+    spin: a, innerRadius, peakRadius, maxFlux, flux,
+    x0, x1, x2, x3, weight1, weight2, weight3,
+    logX0: Math.log(x0), logOffset1: Math.log(x0 - x1), logOffset2: Math.log(x0 - x2), logOffset3: Math.log(x0 - x3),
+  };
+}
+
+function piecewiseGaussian(x, mean, sigmaBelow, sigmaAbove) {
+  const t = (x - mean) / (x < mean ? sigmaBelow : sigmaAbove);
+  return Math.exp(-0.5 * t * t);
+}
+
+function cieColorMatching(wavelengthNm) {
+  return [
+    1.056 * piecewiseGaussian(wavelengthNm, 599.8, 37.9, 31.0) + 0.362 * piecewiseGaussian(wavelengthNm, 442.0, 16.0, 26.7) - 0.065 * piecewiseGaussian(wavelengthNm, 501.1, 20.4, 26.2),
+    0.821 * piecewiseGaussian(wavelengthNm, 568.8, 46.9, 40.5) + 0.286 * piecewiseGaussian(wavelengthNm, 530.9, 16.3, 31.1),
+    1.217 * piecewiseGaussian(wavelengthNm, 437.0, 11.8, 36.0) + 0.681 * piecewiseGaussian(wavelengthNm, 459.0, 26.0, 13.8),
+  ];
+}
+
+function blackbodyXyz(temperature) {
+  const xyz = [0, 0, 0];
+  for (let wavelengthNm = 360; wavelengthNm <= 830; wavelengthNm += 2) {
+    const wavelength = wavelengthNm * 1e-9;
+    const exponent = 1.4387769e-2 / (wavelength * temperature);
+    if (exponent > 700) continue;
+    const spectralRadiance = 1 / (wavelength ** 5 * Math.expm1(exponent));
+    const matching = cieColorMatching(wavelengthNm);
+    for (let channel = 0; channel < 3; channel++) xyz[channel] += spectralRadiance * matching[channel];
+  }
+  return xyz;
+}
+
+function xyzToLinearSrgb([x, y, z]) {
+  return [
+    3.2406 * x - 1.5372 * y - 0.4986 * z,
+    -0.9689 * x + 1.8758 * y + 0.0415 * z,
+    0.0557 * x - 0.2040 * y + 1.0570 * z,
+  ];
+}
+
+function buildBlackbodyTable() {
+  const table = new Float32Array(BLACKBODY_TABLE_SIZE * 4);
+  const referenceLuminance = blackbodyXyz(6500)[1];
+  for (let i = 0; i < BLACKBODY_TABLE_SIZE; i++) {
+    const temperature = 2 ** (BLACKBODY_LOG2_MIN + (BLACKBODY_LOG2_MAX - BLACKBODY_LOG2_MIN) * (i / (BLACKBODY_TABLE_SIZE - 1)));
+    const xyz = blackbodyXyz(temperature);
+    const luminance = xyz[1];
+    const chromaticity = luminance > 0 ? xyzToLinearSrgb([xyz[0] / luminance, 1, xyz[2] / luminance]).map((v) => Math.max(v, 0)) : [1, 0, 0];
+    const clampedLuminance = 0.2126 * chromaticity[0] + 0.7152 * chromaticity[1] + 0.0722 * chromaticity[2];
+    table.set([
+      chromaticity[0] / clampedLuminance,
+      chromaticity[1] / clampedLuminance,
+      chromaticity[2] / clampedLuminance,
+      Math.log2(Math.max(luminance / referenceLuminance, 1e-37)),
+    ], i * 4);
+  }
+  return table;
+}
+
+function blackbodyCssColor(table, temperature) {
+  const position = (Math.log2(temperature) - BLACKBODY_LOG2_MIN) / (BLACKBODY_LOG2_MAX - BLACKBODY_LOG2_MIN) * (BLACKBODY_TABLE_SIZE - 1);
+  const index = Math.min(Math.max(Math.round(position), 0), BLACKBODY_TABLE_SIZE - 1);
+  const rgb = [table[index * 4], table[index * 4 + 1], table[index * 4 + 2]];
+  const peak = Math.max(...rgb);
+  const encode = (v) => {
+    const linear = Math.min(Math.max(v / peak, 0), 1);
+    return Math.round(255 * (linear <= 0.0031308 ? 12.92 * linear : 1.055 * Math.pow(linear, 1 / 2.4) - 0.055));
+  };
+  return `rgb(${encode(rgb[0])}, ${encode(rgb[1])}, ${encode(rgb[2])})`;
+}
+
+const FRAME_UNIFORM_FIELDS = [
+  ['cameraSphereUnit', 'vec3f'], ['cameraInverseRadius', 'f32'],
+  ['cameraSphereThetaHat', 'vec3f'], ['cameraSqrtSigma', 'f32'],
+  ['cameraPhiHat', 'vec3f'], ['cameraAzimuthalScale', 'f32'],
+  ['cameraRadialHat', 'vec3f'], ['cameraRadialRateScale', 'f32'],
+  ['cameraPolarHat', 'vec3f'], ['cameraLapse', 'f32'],
+  ['cameraRight', 'vec3f'], ['cameraFrameDragVelocity', 'f32'],
+  ['cameraUp', 'vec3f'], ['cameraCylindricalRadius', 'f32'],
+  ['cameraForward', 'vec3f'], ['cameraCosThetaSquared', 'f32'],
+  ['worldFromBhX', 'vec3f'], ['cameraAOverSigma', 'f32'],
+  ['worldFromBhY', 'vec3f'], ['tanHalfFovY', 'f32'],
+  ['worldFromBhZ', 'vec3f'], ['aspectRatio', 'f32'],
+  ['spin', 'f32'], ['horizonStopW', 'f32'], ['diskInnerRadius', 'f32'], ['diskOuterRadius', 'f32'],
+  ['fluxX0', 'f32'], ['fluxX1', 'f32'], ['fluxX2', 'f32'], ['fluxX3', 'f32'],
+  ['fluxWeight1', 'f32'], ['fluxWeight2', 'f32'], ['fluxWeight3', 'f32'], ['inverseMaxFlux', 'f32'],
+  ['fluxLogX0', 'f32'], ['fluxLogOffset1', 'f32'], ['fluxLogOffset2', 'f32'], ['fluxLogOffset3', 'f32'],
+  ['diskPeakTemperature', 'f32'], ['diskOpacity', 'f32'], ['diskTime', 'f32'], ['cinematicColor', 'f32'],
+  ['stepAngleNear', 'f32'], ['stepAngleFar', 'f32'], ['maxSteps', 'f32'], ['stepRadialSpan', 'f32'],
+  ['internalSize', 'vec2f'], ['outputSize', 'vec2f'],
+  ['bloomSize', 'vec2f'], ['frameIndex', 'f32'], ['pixelAngle', 'f32'],
+  ['exposure', 'f32'], ['bloomStrength', 'f32'], ['grainStrength', 'f32'], ['skyBrightness', 'f32'],
+  ['starBrightness', 'f32'], ['vignetteStrength', 'f32'], ['debugView', 'f32'], ['cinematicLook', 'f32'],
+  ['compositeFeatureMask', 'f32'], ['skyPixelAngle', 'f32'], ['skySize', 'vec2f'],
+  ['horizonW', 'f32'], ['diskZoneW', 'f32'], ['renderTargetSize', 'vec2f'],
+];
+
+function layoutUniformStruct(structName, fields) {
+  const typeLayout = { f32: [4, 4], vec2f: [8, 8], vec3f: [12, 16], vec4f: [16, 16] };
+  const offsets = {};
+  const members = [];
+  let byteOffset = 0;
+  for (const [name, type] of fields) {
+    const [size, alignment] = typeLayout[type];
+    byteOffset = Math.ceil(byteOffset / alignment) * alignment;
+    offsets[name] = byteOffset / 4;
+    byteOffset += size;
+    members.push(`  ${name}: ${type},`);
+  }
+  const byteSize = Math.ceil(byteOffset / 16) * 16;
+  return { offsets, byteSize, floatCount: byteSize / 4, wgsl: `struct ${structName} {\n${members.join('\n')}\n}\n` };
+}
+
+const frameLayout = layoutUniformStruct('FrameUniforms', FRAME_UNIFORM_FIELDS);
+
+const WGSL_SHARED = `
+${frameLayout.wgsl}
+const PI: f32 = 3.14159265358979;
+const TAU: f32 = 6.28318530717959;
+const BLACKBODY_TABLE_SIZE: i32 = ${BLACKBODY_TABLE_SIZE};
+const BLACKBODY_LOG2_MIN: f32 = ${BLACKBODY_LOG2_MIN.toFixed(8)};
+const BLACKBODY_LOG2_MAX: f32 = ${BLACKBODY_LOG2_MAX.toFixed(8)};
+
+fn hash32(value: u32) -> u32 {
+  let state = value * 747796405u + 2891336453u;
+  let word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+  return (word >> 22u) ^ word;
+}
+
+fn hashToUnit(value: u32) -> f32 {
+  return f32(hash32(value) >> 8u) * (1.0 / 16777216.0);
+}
+
+fn latticeGradient(cell: vec3i) -> vec3f {
+  let seed = hash32((bitcast<u32>(cell.x) * 0x8da6b343u) ^ (bitcast<u32>(cell.y) * 0xd8163841u) ^ (bitcast<u32>(cell.z) * 0xcb1ab31fu));
+  return vec3f(f32(seed & 1023u), f32((seed >> 10u) & 1023u), f32((seed >> 20u) & 1023u)) * (2.0 / 1023.0) - 1.0;
+}
+
+fn gradientNoise(position: vec3f) -> f32 {
+  let cellFloor = floor(position);
+  let local = position - cellFloor;
+  let cell = vec3i(cellFloor);
+  let fade = local * local * local * (local * (local * 6.0 - 15.0) + 10.0);
+  let n000 = dot(latticeGradient(cell), local);
+  let n100 = dot(latticeGradient(cell + vec3i(1, 0, 0)), local - vec3f(1.0, 0.0, 0.0));
+  let n010 = dot(latticeGradient(cell + vec3i(0, 1, 0)), local - vec3f(0.0, 1.0, 0.0));
+  let n110 = dot(latticeGradient(cell + vec3i(1, 1, 0)), local - vec3f(1.0, 1.0, 0.0));
+  let n001 = dot(latticeGradient(cell + vec3i(0, 0, 1)), local - vec3f(0.0, 0.0, 1.0));
+  let n101 = dot(latticeGradient(cell + vec3i(1, 0, 1)), local - vec3f(1.0, 0.0, 1.0));
+  let n011 = dot(latticeGradient(cell + vec3i(0, 1, 1)), local - vec3f(0.0, 1.0, 1.0));
+  let n111 = dot(latticeGradient(cell + vec3i(1, 1, 1)), local - vec3f(1.0, 1.0, 1.0));
+  let nearFace = mix(mix(n000, n100, fade.x), mix(n010, n110, fade.x), fade.y);
+  let farFace = mix(mix(n001, n101, fade.x), mix(n011, n111, fade.x), fade.y);
+  return mix(nearFace, farFace, fade.z);
+}
+
+fn luminance(color: vec3f) -> f32 {
+  return dot(color, vec3f(0.2126, 0.7152, 0.0722));
+}
+
+@vertex fn fullscreenVertex(@builtin(vertex_index) index: u32) -> @builtin(position) vec4f {
+  let corner = vec2f(f32((index << 1u) & 2u), f32(index & 2u));
+  return vec4f(corner * 2.0 - 1.0, 0.0, 1.0);
+}
+`;
+
+const WGSL_BLACKBODY = `
+fn blackbodyEntry(index: i32) -> vec4f {
+  return textureLoad(blackbodyTable, vec2i(clamp(index, 0, BLACKBODY_TABLE_SIZE - 1), 0), 0);
+}
+
+fn blackbodyLookup(temperature: f32) -> vec4f {
+  let position = (log2(max(temperature, 1.0)) - BLACKBODY_LOG2_MIN) / (BLACKBODY_LOG2_MAX - BLACKBODY_LOG2_MIN) * f32(BLACKBODY_TABLE_SIZE - 1);
+  let index = i32(floor(position));
+  return mix(blackbodyEntry(index), blackbodyEntry(index + 1), clamp(position - floor(position), 0.0, 1.0));
+}
+
+fn blackbodyRadiance(temperature: f32) -> vec3f {
+  let entry = blackbodyLookup(temperature);
+  return entry.rgb * exp2(entry.a);
+}
+
+fn blackbodyChromaticity(temperature: f32) -> vec3f {
+  return blackbodyLookup(temperature).rgb;
+}
+
+fn redshiftedColorPerUnitLuminance(restTemperature: f32, redshift: f32) -> vec3f {
+  let rest = blackbodyLookup(restTemperature);
+  let observed = blackbodyLookup(restTemperature * redshift);
+  return observed.rgb * exp2(observed.a - rest.a);
+}
+`;
+
+const WGSL_FRAME_BINDINGS = `
+@group(0) @binding(0) var<uniform> frame: FrameUniforms;
+@group(0) @binding(1) var blackbodyTable: texture_2d<f32>;
+@group(0) @binding(2) var diskNoiseTexture: texture_2d<f32>;
+@group(0) @binding(3) var repeatSampler: sampler;
+`;
+
+const WGSL_DISK_NOISE = `
+struct NoiseTarget {
+  size: vec2f,
+  unused: vec2f,
+}
+@group(0) @binding(0) var<uniform> noiseTarget: NoiseTarget;
+
+fn periodicGradient(cell: vec2i, period: vec2i, seed: u32) -> vec2f {
+  let wrapped = ((cell % period) + period) % period;
+  let hashed = hash32((bitcast<u32>(wrapped.x) * 0x8da6b343u) ^ (bitcast<u32>(wrapped.y) * 0xd8163841u) ^ (seed * 0xcb1ab31fu));
+  let angle = f32(hashed >> 8u) * (TAU / 16777216.0);
+  return vec2f(cos(angle), sin(angle));
+}
+
+fn periodicNoise(position: vec2f, period: vec2i, seed: u32) -> f32 {
+  let cellFloor = floor(position);
+  let local = position - cellFloor;
+  let cell = vec2i(cellFloor);
+  let fade = local * local * local * (local * (local * 6.0 - 15.0) + 10.0);
+  let a = dot(periodicGradient(cell, period, seed), local);
+  let b = dot(periodicGradient(cell + vec2i(1, 0), period, seed), local - vec2f(1.0, 0.0));
+  let c = dot(periodicGradient(cell + vec2i(0, 1), period, seed), local - vec2f(0.0, 1.0));
+  let d = dot(periodicGradient(cell + vec2i(1, 1), period, seed), local - vec2f(1.0, 1.0));
+  return 1.414 * mix(mix(a, b, fade.x), mix(c, d, fade.x), fade.y);
+}
+
+fn periodicFbm(uv: vec2f, basePeriod: vec2i, octaves: i32, seed: u32, gain: f32) -> f32 {
+  var sum = 0.0;
+  var amplitude = 0.5;
+  var period = basePeriod;
+  for (var octave = 0; octave < octaves; octave++) {
+    sum += amplitude * periodicNoise(uv * vec2f(period), period, seed + u32(octave) * 7919u);
+    period = period * 2;
+    amplitude *= gain;
+  }
+  return sum;
+}
+
+@fragment fn diskNoiseFragment(@builtin(position) fragCoord: vec4f) -> @location(0) vec4f {
+  let uv = fragCoord.xy / noiseTarget.size;
+  let warp = vec2f(periodicFbm(uv, vec2i(4, 3), 4, 11u, 0.5), periodicFbm(uv, vec2i(4, 3), 4, 23u, 0.5));
+  let warpedUv = uv + warp * vec2f(0.05, 0.09);
+  let turbulence = periodicFbm(warpedUv, vec2i(16, 7), 5, 101u, 0.5);
+  let streaks = periodicFbm(uv + warp * vec2f(0.02, 0.012), vec2i(3, 30), 3, 211u, 0.5);
+  let detail = periodicFbm(warpedUv, vec2i(48, 12), 3, 307u, 0.5);
+  let largeScale = periodicFbm(uv, vec2i(3, 2), 3, 401u, 0.5);
+  return vec4f(turbulence, streaks, detail, largeScale);
+}
+`;
+
+const WGSL_TRACE = `
+const OUTCOME_CAPTURED: u32 = 0u;
+const OUTCOME_ESCAPED: u32 = 1u;
+const OUTCOME_STEP_LIMIT: u32 = 2u;
+const OUTCOME_OPAQUE: u32 = 3u;
+const NEAR_W: f32 = 0.12;
+const FAR_W: f32 = 0.03;
+const HORIZON_GAP_FRACTION: f32 = 0.5;
+const SUPERSAMPLE_STEP_THRESHOLD: u32 = 45u;
+const DISK_DENSITY_FLOOR: f32 = 0.35;
+const DISK_SCALE_HEIGHT: f32 = 0.02;
+const DISK_MIN_PATH_COSINE: f32 = 0.15;
+const TURBULENCE_LIFETIME_ORBITS: f32 = 0.6;
+const TURBULENCE_ZONES_PER_OCTAVE: f32 = 2.0;
+const TURBULENCE_SPIRAL_PITCH: f32 = 1.6;
+const TURBULENCE_RADIAL_SCALE: f32 = 1.0;
+const TURBULENCE_TEXTURE_WIDTH: f32 = ${DISK_NOISE_WIDTH}.0;
+const TURBULENCE_TEXTURE_HEIGHT: f32 = ${DISK_NOISE_HEIGHT}.0;
+const FRAME_DRAG_STEP_ANGLE: f32 = 0.25;
+
+struct RayConstants {
+  energy: f32,
+  angularMomentum: f32,
+  radialC0: f32,
+  radialC1: f32,
+  radialC2: f32,
+  sphereSpeedSquared: f32,
+  spinEnergySquared: f32,
+  spinShift: f32,
+}
+
+struct RayState {
+  w: f32,
+  dw: f32,
+  sphere: vec3f,
+  sphereVelocity: vec3f,
+  frameDragAngle: f32,
+  coordinateTime: f32,
+  regularTimeIncrement: f32,
+}
+
+struct RayRates {
+  ddw: f32,
+  sphereAcceleration: vec3f,
+  frameDragRate: f32,
+  regularTimeRate: f32,
+}
+
+struct TraceResult {
+  outcome: u32,
+  steps: u32,
+  crossings: u32,
+  skyDirection: vec3f,
+  skyRedshift: f32,
+  emission: vec3f,
+  transmittance: f32,
+  firstCrossing: vec4f,
+}
+
+fn makeRayConstants(local: vec3f) -> RayConstants {
+  let a = frame.spin;
+  let energy = -frame.cameraLapse + frame.cameraFrameDragVelocity * local.z;
+  let angularMomentum = frame.cameraCylindricalRadius * local.z;
+  let thetaRate = frame.cameraSqrtSigma * local.y;
+  let carterQ = thetaRate * thetaRate + frame.cameraCosThetaSquared * (frame.cameraAOverSigma * local.z * local.z - a * a * energy * energy);
+  let shiftedMomentum = angularMomentum - a * energy;
+  let kerrK = carterQ + shiftedMomentum * shiftedMomentum;
+  let spinShift = -a * shiftedMomentum;
+  var constants: RayConstants;
+  constants.energy = energy;
+  constants.angularMomentum = angularMomentum;
+  constants.radialC0 = 2.0 * energy * spinShift - kerrK;
+  constants.radialC1 = 3.0 * kerrK;
+  constants.radialC2 = 2.0 * (spinShift * spinShift - a * a * kerrK);
+  constants.sphereSpeedSquared = carterQ + angularMomentum * angularMomentum;
+  constants.spinEnergySquared = a * a * energy * energy;
+  constants.spinShift = spinShift;
+  return constants;
+}
+
+fn makeInitialState(local: vec3f) -> RayState {
+  var state: RayState;
+  state.w = frame.cameraInverseRadius;
+  state.dw = -frame.cameraRadialRateScale * local.x;
+  state.sphere = frame.cameraSphereUnit;
+  state.sphereVelocity = (frame.cameraSqrtSigma * local.y) * frame.cameraSphereThetaHat + (frame.cameraAzimuthalScale * local.z) * frame.cameraPhiHat;
+  state.frameDragAngle = 0.0;
+  state.coordinateTime = 0.0;
+  state.regularTimeIncrement = 0.0;
+  return state;
+}
+
+fn rayRates(constants: RayConstants, w: f32, sphere: vec3f) -> RayRates {
+  let a = frame.spin;
+  let u = sphere.z;
+  var rates: RayRates;
+  rates.ddw = w * (constants.radialC0 + w * (constants.radialC1 + w * constants.radialC2));
+  let pull = -constants.sphereSpeedSquared - 2.0 * constants.spinEnergySquared * u * u;
+  rates.sphereAcceleration = pull * sphere + vec3f(0.0, 0.0, constants.spinEnergySquared * u);
+  let inverseDelta = 1.0 / max(1.0 - 2.0 * w + a * a * w * w, 1e-5);
+  rates.frameDragRate = a * w * (2.0 * constants.energy - a * constants.angularMomentum * w) * inverseDelta;
+  rates.regularTimeRate = (2.0 * constants.energy * (2.0 - a * a * w) + constants.spinShift * (1.0 + a * a * w * w)) * inverseDelta
+    + a * (constants.angularMomentum - a * constants.energy * (1.0 - u * u));
+  return rates;
+}
+
+fn singularTimeIntegral(energy: f32, h: f32, w0: f32, w1: f32) -> f32 {
+  let safeW1 = max(w1, 1e-6);
+  let relativeChange = (safeW1 - w0) / w0;
+  var logRatioOverDifference = log(safeW1 / w0) / (safeW1 - w0);
+  if (abs(relativeChange) < 1e-2) {
+    logRatioOverDifference = (1.0 - relativeChange * 0.5 + relativeChange * relativeChange * (1.0 / 3.0)) / w0;
+  }
+  return energy * h * (1.0 / (w0 * safeW1) + 2.0 * logRatioOverDifference);
+}
+
+fn advanceRay(constants: RayConstants, state: RayState, h: f32) -> RayState {
+  let first = rayRates(constants, state.w, state.sphere);
+  let halfStep = 0.5 * h;
+  let stepSquaredOver8 = 0.125 * h * h;
+  let second = rayRates(constants,
+    state.w + halfStep * state.dw + stepSquaredOver8 * first.ddw,
+    state.sphere + halfStep * state.sphereVelocity + stepSquaredOver8 * first.sphereAcceleration);
+  let stepSquaredOver2 = 0.5 * h * h;
+  let third = rayRates(constants,
+    state.w + h * state.dw + stepSquaredOver2 * second.ddw,
+    state.sphere + h * state.sphereVelocity + stepSquaredOver2 * second.sphereAcceleration);
+  let stepSquaredOver6 = h * h * (1.0 / 6.0);
+  let stepOver6 = h * (1.0 / 6.0);
+  var next: RayState;
+  next.w = state.w + h * state.dw + stepSquaredOver6 * (first.ddw + 2.0 * second.ddw);
+  next.dw = state.dw + stepOver6 * (first.ddw + 4.0 * second.ddw + third.ddw);
+  let sphere = state.sphere + h * state.sphereVelocity + stepSquaredOver6 * (first.sphereAcceleration + 2.0 * second.sphereAcceleration);
+  let sphereVelocity = state.sphereVelocity + stepOver6 * (first.sphereAcceleration + 4.0 * second.sphereAcceleration + third.sphereAcceleration);
+  next.sphere = normalize(sphere);
+  next.sphereVelocity = sphereVelocity - dot(sphereVelocity, next.sphere) * next.sphere;
+  next.frameDragAngle = state.frameDragAngle + stepOver6 * (first.frameDragRate + 4.0 * second.frameDragRate + third.frameDragRate);
+  next.regularTimeIncrement = stepOver6 * (first.regularTimeRate + 4.0 * second.regularTimeRate + third.regularTimeRate);
+  next.coordinateTime = state.coordinateTime + next.regularTimeIncrement + singularTimeIntegral(constants.energy, h, state.w, next.w);
+  return next;
+}
+
+fn stepSize(constants: RayConstants, state: RayState, angleScale: f32) -> f32 {
+  let a = frame.spin;
+  let u = state.sphere.z;
+  let sphereSpeed = sqrt(max(constants.sphereSpeedSquared + constants.spinEnergySquared * u * u, 0.0));
+  let nearness = clamp((state.w - FAR_W) / (NEAR_W - FAR_W), 0.0, 1.0);
+  let angle = mix(frame.stepAngleFar, frame.stepAngleNear, nearness) * angleScale;
+  let horizonApproach = max(state.dw, 0.0) / (HORIZON_GAP_FRACTION * max(frame.horizonW - state.w, 1e-4));
+  let delta = 1.0 - 2.0 * state.w + a * a * state.w * state.w;
+  let frameDragRate = abs(a * state.w * (2.0 * constants.energy - a * constants.angularMomentum * state.w)) / max(delta, 1e-4);
+  let diskZoneDrag = select(0.0, frameDragRate / FRAME_DRAG_STEP_ANGLE, state.w < frame.diskZoneW);
+  let rate = max(max(sphereSpeed, abs(state.dw) * angle / frame.stepRadialSpan), max(max(horizonApproach, diskZoneDrag), 1e-6) * angle);
+  return angle / max(rate, 1e-6);
+}
+
+fn hermiteInterpolate(p0: f32, d0: f32, p1: f32, d1: f32, h: f32, f: f32) -> f32 {
+  let f2 = f * f;
+  let f3 = f2 * f;
+  return (2.0 * f3 - 3.0 * f2 + 1.0) * p0 + (f3 - 2.0 * f2 + f) * h * d0 + (3.0 * f2 - 2.0 * f3) * p1 + (f3 - f2) * h * d1;
+}
+
+fn rotateAboutSpinAxis(v: vec3f, angle: f32) -> vec3f {
+  let c = cos(angle);
+  let s = sin(angle);
+  return vec3f(v.x * c - v.y * s, v.x * s + v.y * c, v.z);
+}
+
+fn diskFlux(radius: f32) -> f32 {
+  let x = sqrt(radius);
+  let bracket = x - frame.fluxX0 - 1.5 * frame.spin * (log(x) - frame.fluxLogX0)
+    - frame.fluxWeight1 * (log(x - frame.fluxX1) - frame.fluxLogOffset1)
+    - frame.fluxWeight2 * (log(x - frame.fluxX2) - frame.fluxLogOffset2)
+    - frame.fluxWeight3 * (log(x - frame.fluxX3) - frame.fluxLogOffset3);
+  let x2 = x * x;
+  return max(bracket, 0.0) / (x2 * x2 * (x2 * x - 3.0 * x + 2.0 * frame.spin));
+}
+
+fn diskOpacityProfile(radius: f32) -> f32 {
+  let inner = frame.diskInnerRadius;
+  let innerTaper = smoothstep(inner, inner * 1.3, radius);
+  let outerTaper = 1.0 - smoothstep(frame.diskOuterRadius * 0.45, frame.diskOuterRadius, radius);
+  return innerTaper * outerTaper * pow(inner * 2.5 / max(radius, inner * 2.5), 0.9);
+}
+
+fn generationOffset(generation: f32, layer: i32) -> vec2f {
+  let seed = hash32(bitcast<u32>(i32(generation)) * 0x9e3779b1u + u32(layer) * 0x7f4a7c15u);
+  return vec2f(f32(seed & 0xffffu), f32(seed >> 16u)) * (1.0 / 65536.0);
+}
+
+fn diskTurbulence(radius: f32, azimuth: f32, time: f32, detailLevel: f32) -> vec2f {
+  let logRadius = log(radius);
+  let orbitalRate = 1.0 / (radius * sqrt(radius) + frame.spin);
+  let zoneCoordinate = log2(radius / frame.diskInnerRadius) * TURBULENCE_ZONES_PER_OCTAVE;
+  let zoneBase = floor(zoneCoordinate);
+  let zoneBlend = zoneCoordinate - zoneBase;
+  var blended = vec4f(0.0);
+  var weightSquares = 0.0;
+  for (var zone = 0; zone < 2; zone++) {
+    let zoneIndex = zoneBase + f32(zone);
+    let zoneWeight = select(1.0 - zoneBlend, zoneBlend, zone == 1);
+    let zoneRadius = frame.diskInnerRadius * exp2(zoneIndex / TURBULENCE_ZONES_PER_OCTAVE);
+    let lifetime = TAU * TURBULENCE_LIFETIME_ORBITS * (zoneRadius * sqrt(zoneRadius) + frame.spin);
+    let zonePhase = time / lifetime + zoneIndex * 0.381966;
+    for (var layer = 0; layer < 2; layer++) {
+      let layerPhase = zonePhase + 0.5 * f32(layer);
+      let age = fract(layerPhase);
+      let weight = zoneWeight * (1.0 - abs(2.0 * age - 1.0));
+      let advectedAzimuth = azimuth - orbitalRate * age * lifetime + TURBULENCE_SPIRAL_PITCH * logRadius;
+      let coordinates = vec2f(advectedAzimuth * (1.0 / TAU), logRadius * TURBULENCE_RADIAL_SCALE) + generationOffset(floor(layerPhase), layer + 2 * i32(zoneIndex));
+      blended += weight * textureSampleLevel(diskNoiseTexture, repeatSampler, coordinates, detailLevel);
+      weightSquares += weight * weight;
+    }
+  }
+  let fields = blended * inverseSqrt(max(weightSquares, 0.1));
+  let structure = 2.2 * fields.x + 0.12 * fields.y + 0.45 * fields.z + 1.2 * fields.w;
+  return vec2f(exp(structure), 0.9 * fields.x + 0.35 * fields.z + 0.5 * fields.w);
+}
+
+fn shadeDiskCrossing(constants: RayConstants, radius: f32, azimuth: f32, emissionTime: f32, normalRate: f32, crossingW: f32) -> vec4f {
+  let a = frame.spin;
+  let sqrtRadius = sqrt(radius);
+  let radiusToThreeHalves = radius * sqrtRadius;
+  let orbitalRate = 1.0 / (radiusToThreeHalves + a);
+  let timeDilation = (radiusToThreeHalves + a) / (sqrt(sqrtRadius) * sqrtRadius * sqrt(max(radiusToThreeHalves - 3.0 * sqrtRadius + 2.0 * a, 1e-6)));
+  let redshift = 1.0 / max(timeDilation * (orbitalRate * constants.angularMomentum - constants.energy), 1e-4);
+  let emittedTemperature = frame.diskPeakTemperature * pow(max(diskFlux(radius) * frame.inverseMaxFlux, 0.0), 0.25);
+  let emissionCosine = clamp(normalRate * crossingW * redshift, 0.04, 1.0);
+  let slabCosine = max(emissionCosine, DISK_MIN_PATH_COSINE);
+  let pixelFootprint = frame.tanHalfFovY * 2.0 / frame.internalSize.y * max(abs(emissionTime), 1.0) * inverseSqrt(slabCosine);
+  let slabSmear = 2.0 * DISK_SCALE_HEIGHT * radius * sqrt(max(1.0 - slabCosine * slabCosine, 0.0)) / slabCosine;
+  let footprint = max(pixelFootprint, slabSmear);
+  let texelsPerUnitLength = max(TURBULENCE_TEXTURE_WIDTH / (TAU * radius), TURBULENCE_TEXTURE_HEIGHT * TURBULENCE_RADIAL_SCALE / radius);
+  let detailLevel = max(log2(footprint * texelsPerUnitLength), 0.0);
+  let turbulence = diskTurbulence(radius, azimuth, frame.diskTime + emissionTime, detailLevel);
+  let localTemperature = emittedTemperature * clamp(1.0 + 0.12 * turbulence.y, 0.75, 1.3);
+  let opticalDepth = frame.diskOpacity * diskOpacityProfile(radius) * (DISK_DENSITY_FLOOR + turbulence.x);
+  let transmission = exp(-opticalDepth / slabCosine);
+  let limbDarkening = mix(1.0, (1.0 + 2.06 * emissionCosine) / 2.3733, 1.0 - exp(-opticalDepth));
+  var radiance: vec3f;
+  if (frame.cinematicColor > 0.5) {
+    let warmTemperature = emittedTemperature * 0.62 * mix(1.0, redshift, 0.15);
+    let brightness = luminance(blackbodyRadiance(localTemperature)) * pow(redshift, 1.4);
+    radiance = blackbodyChromaticity(warmTemperature) * brightness * 1.15;
+  } else {
+    radiance = blackbodyRadiance(localTemperature * redshift);
+  }
+  return vec4f(radiance * ((1.0 - transmission) * limbDarkening), transmission);
+}
+
+fn traceRay(local: vec3f, shadeDisk: bool, angleScale: f32) -> TraceResult {
+  let constants = makeRayConstants(local);
+  var state = makeInitialState(local);
+  var result: TraceResult;
+  result.outcome = OUTCOME_STEP_LIMIT;
+  result.steps = 0u;
+  result.crossings = 0u;
+  result.skyDirection = vec3f(0.0);
+  result.skyRedshift = 1.0 / max(-constants.energy, 1e-3);
+  result.emission = vec3f(0.0);
+  result.transmittance = 1.0;
+  result.firstCrossing = vec4f(0.0);
+  let stepLimit = u32(frame.maxSteps);
+  for (var stepIndex = 0u; stepIndex < stepLimit; stepIndex++) {
+    let h = stepSize(constants, state, angleScale);
+    let next = advanceRay(constants, state, h);
+    result.steps = stepIndex + 1u;
+    if ((state.sphere.z > 0.0) != (next.sphere.z > 0.0)) {
+      let fraction = state.sphere.z / (state.sphere.z - next.sphere.z);
+      let crossingW = hermiteInterpolate(state.w, state.dw, next.w, next.dw, h, fraction);
+      let radius = 1.0 / crossingW;
+      if (radius > frame.diskInnerRadius && radius < frame.diskOuterRadius) {
+        let planar = mix(state.sphere.xy, next.sphere.xy, fraction);
+        let azimuth = atan2(planar.y, planar.x) + mix(state.frameDragAngle, next.frameDragAngle, fraction);
+        let emissionTime = state.coordinateTime + fraction * next.regularTimeIncrement + singularTimeIntegral(constants.energy, fraction * h, state.w, crossingW);
+        let normalRate = abs(mix(state.sphereVelocity.z, next.sphereVelocity.z, fraction));
+        if (result.crossings == 0u) {
+          result.firstCrossing = vec4f(radius, azimuth, emissionTime, normalRate * crossingW);
+        }
+        result.crossings += 1u;
+        if (shadeDisk) {
+          let crossingSample = shadeDiskCrossing(constants, radius, azimuth, emissionTime, normalRate, crossingW);
+          result.emission += result.transmittance * crossingSample.rgb;
+          result.transmittance *= crossingSample.a;
+          if (result.transmittance < 0.004) {
+            result.outcome = OUTCOME_OPAQUE;
+            break;
+          }
+        }
+      }
+    }
+    if (next.w <= 0.0) {
+      let fraction = state.w / (state.w - next.w);
+      let sphere = normalize(mix(state.sphere, next.sphere, fraction));
+      result.skyDirection = rotateAboutSpinAxis(sphere, mix(state.frameDragAngle, next.frameDragAngle, fraction));
+      result.outcome = OUTCOME_ESCAPED;
+      break;
+    }
+    if (next.w >= frame.horizonStopW) {
+      result.outcome = OUTCOME_CAPTURED;
+      break;
+    }
+    state = next;
+  }
+  if (result.outcome == OUTCOME_STEP_LIMIT && state.dw < 0.0 && state.w < 0.06) {
+    result.skyDirection = rotateAboutSpinAxis(state.sphere, state.frameDragAngle);
+    result.outcome = OUTCOME_ESCAPED;
+  }
+  return result;
+}
+
+fn heatColor(value: f32) -> vec3f {
+  let t = clamp(value, 0.0, 1.0);
+  return clamp(vec3f(1.5 * t, 2.0 * t - 0.5, 4.0 * t * (1.0 - t)) + vec3f(0.0, 0.0, 0.15), vec3f(0.0), vec3f(1.0)) * 4.0;
+}
+
+struct TraceTargets {
+  @location(0) disk: vec4f,
+  @location(1) sky: vec4f,
+}
+
+fn localRayDirection(pixel: vec2f) -> vec3f {
+  let ndc = vec2f(pixel.x / frame.internalSize.x * 2.0 - 1.0, 1.0 - pixel.y / frame.internalSize.y * 2.0);
+  let directionBh = normalize(frame.cameraForward
+    + (ndc.x * frame.aspectRatio * frame.tanHalfFovY) * frame.cameraRight
+    + (ndc.y * frame.tanHalfFovY) * frame.cameraUp);
+  return vec3f(dot(directionBh, frame.cameraRadialHat), dot(directionBh, frame.cameraPolarHat), dot(directionBh, frame.cameraPhiHat));
+}
+
+fn supersampleOffset(index: u32) -> vec2f {
+  let corner = vec2f(select(-0.375, 0.125, (index & 1u) != 0u), select(-0.125, 0.375, (index & 2u) != 0u));
+  return select(corner, vec2f(-corner.y, corner.x), (index & 1u) != (index >> 1u));
+}
+
+@fragment fn traceFragment(@builtin(position) fragCoord: vec4f) -> TraceTargets {
+  let result = traceRay(localRayDirection(fragCoord.xy), true, 1.0);
+  var targets: TraceTargets;
+  let escaped = result.outcome == OUTCOME_ESCAPED;
+  var emission = result.emission;
+  var visibility = select(0.0, result.transmittance, escaped);
+  if (result.steps > SUPERSAMPLE_STEP_THRESHOLD) {
+    for (var sampleIndex = 0u; sampleIndex < 4u; sampleIndex++) {
+      let extra = traceRay(localRayDirection(fragCoord.xy + supersampleOffset(sampleIndex)), true, 1.0);
+      emission += extra.emission;
+      visibility += select(0.0, extra.transmittance, extra.outcome == OUTCOME_ESCAPED);
+    }
+    emission *= 0.2;
+    visibility *= 0.2;
+  }
+  targets.disk = vec4f(emission, visibility);
+  let worldDirection = frame.worldFromBhX * result.skyDirection.x + frame.worldFromBhY * result.skyDirection.y + frame.worldFromBhZ * result.skyDirection.z;
+  targets.sky = select(vec4f(0.0), vec4f(worldDirection, result.skyRedshift), escaped);
+  if (frame.debugView > 0.5) {
+    targets.disk = vec4f(heatColor(f32(result.steps) / 160.0), 0.0);
+    targets.sky = vec4f(0.0);
+  }
+  return targets;
+}
+`;
+
+const WGSL_SELF_TEST = `
+struct SelfTestRecord {
+  summary: vec4f,
+  sky: vec4f,
+  crossing: vec4f,
+}
+@group(1) @binding(0) var<storage, read> selfTestDirections: array<vec4f>;
+@group(1) @binding(1) var<storage, read_write> selfTestRecords: array<SelfTestRecord>;
+
+@compute @workgroup_size(64) fn selfTestCompute(@builtin(global_invocation_id) id: vec3u) {
+  if (id.x >= arrayLength(&selfTestDirections)) {
+    return;
+  }
+  let result = traceRay(selfTestDirections[id.x].xyz, false, 1.0);
+  selfTestRecords[id.x].summary = vec4f(f32(result.outcome), f32(result.steps), f32(result.crossings), result.skyRedshift);
+  selfTestRecords[id.x].sky = vec4f(result.skyDirection, 0.0);
+  selfTestRecords[id.x].crossing = result.firstCrossing;
+}
+`;
+
+const WGSL_BLOOM = `
+struct BloomStage {
+  sourceTexel: vec2f,
+  targetSize: vec2f,
+  tapSpacing: vec2f,
+  sourceUvExtent: vec2f,
+  firstStage: f32,
+  unusedA: f32,
+  unusedB: f32,
+  unusedC: f32,
+}
+@group(1) @binding(0) var bloomSource: texture_2d<f32>;
+@group(1) @binding(1) var bloomSampler: sampler;
+@group(1) @binding(2) var<uniform> stage: BloomStage;
+
+fn bloomTap(uv: vec2f, offset: vec2f) -> vec3f {
+  let position = clamp(uv + offset * stage.tapSpacing * stage.sourceTexel, 0.5 * stage.sourceTexel, stage.sourceUvExtent - 0.5 * stage.sourceTexel);
+  return textureSampleLevel(bloomSource, bloomSampler, position, 0.0).rgb;
+}
+
+fn karisWeight(color: vec3f) -> f32 {
+  return 1.0 / (1.0 + luminance(color));
+}
+
+@fragment fn bloomDownsample(@builtin(position) fragCoord: vec4f) -> @location(0) vec4f {
+  let uv = fragCoord.xy / stage.targetSize * stage.sourceUvExtent;
+  let a = bloomTap(uv, vec2f(-2.0, -2.0));
+  let b = bloomTap(uv, vec2f(0.0, -2.0));
+  let c = bloomTap(uv, vec2f(2.0, -2.0));
+  let d = bloomTap(uv, vec2f(-2.0, 0.0));
+  let e = bloomTap(uv, vec2f(0.0, 0.0));
+  let f = bloomTap(uv, vec2f(2.0, 0.0));
+  let g = bloomTap(uv, vec2f(-2.0, 2.0));
+  let h = bloomTap(uv, vec2f(0.0, 2.0));
+  let i = bloomTap(uv, vec2f(2.0, 2.0));
+  let j = bloomTap(uv, vec2f(-1.0, -1.0));
+  let k = bloomTap(uv, vec2f(1.0, -1.0));
+  let l = bloomTap(uv, vec2f(-1.0, 1.0));
+  let m = bloomTap(uv, vec2f(1.0, 1.0));
+  if (stage.firstStage > 0.5) {
+    let center = (j + k + l + m) * 0.25;
+    let topLeft = (a + b + d + e) * 0.25;
+    let topRight = (b + c + e + f) * 0.25;
+    let bottomLeft = (d + e + g + h) * 0.25;
+    let bottomRight = (e + f + h + i) * 0.25;
+    let weights = vec4f(karisWeight(topLeft), karisWeight(topRight), karisWeight(bottomLeft), karisWeight(bottomRight)) * 0.125;
+    let centerWeight = karisWeight(center) * 0.5;
+    let total = centerWeight + weights.x + weights.y + weights.z + weights.w;
+    let color = (center * centerWeight + topLeft * weights.x + topRight * weights.y + bottomLeft * weights.z + bottomRight * weights.w) / total;
+    return vec4f(color, 1.0);
+  }
+  let color = e * 0.125 + (a + c + g + i) * 0.03125 + (b + d + f + h) * 0.0625 + (j + k + l + m) * 0.125;
+  return vec4f(color, 1.0);
+}
+
+@fragment fn bloomUpsample(@builtin(position) fragCoord: vec4f) -> @location(0) vec4f {
+  let uv = fragCoord.xy / stage.targetSize * stage.sourceUvExtent;
+  var color = bloomTap(uv, vec2f(0.0, 0.0)) * 4.0;
+  color += (bloomTap(uv, vec2f(-1.0, 0.0)) + bloomTap(uv, vec2f(1.0, 0.0)) + bloomTap(uv, vec2f(0.0, -1.0)) + bloomTap(uv, vec2f(0.0, 1.0))) * 2.0;
+  color += bloomTap(uv, vec2f(-1.0, -1.0)) + bloomTap(uv, vec2f(1.0, -1.0)) + bloomTap(uv, vec2f(-1.0, 1.0)) + bloomTap(uv, vec2f(1.0, 1.0));
+  return vec4f(color * (1.0 / 16.0), 1.0);
+}
+`;
+
+const WGSL_SKY = `
+@group(1) @binding(0) var skyDirectionTexture: texture_2d<f32>;
+@group(1) @binding(1) var galaxyTexture: texture_cube<f32>;
+@group(1) @binding(2) var linearSampler: sampler;
+
+const GALAXY_BAND_FULL_LUMINANCE: f32 = 0.008;
+const STAR_KERNEL_NORMALIZATION: f32 = ${(4 / (Math.PI * STAR_PSF_RADIUS_PIXELS * STAR_PSF_RADIUS_PIXELS)).toFixed(6)};
+const STAR_PSF_RADIUS: f32 = ${STAR_PSF_RADIUS_PIXELS.toFixed(4)};
+const STAR_PSF_RADIUS_SQUARED: f32 = ${(STAR_PSF_RADIUS_PIXELS * STAR_PSF_RADIUS_PIXELS).toFixed(4)};
+const STAR_COLOR_RED: vec4f = vec4f(${STAR_COLOR_FIT.red.map((c) => c.toFixed(6)).join(', ')});
+const STAR_COLOR_GREEN: vec4f = vec4f(${STAR_COLOR_FIT.green.map((c) => c.toFixed(6)).join(', ')});
+const STAR_COLOR_BLUE: vec4f = vec4f(${STAR_COLOR_FIT.blue.map((c) => c.toFixed(6)).join(', ')});
+const STAR_LOG_LUMINANCE: vec4f = vec4f(${STAR_COLOR_FIT.logLuminance.map((c) => c.toFixed(6)).join(', ')});
+const STAR_MAX_MAGNIFICATION: f32 = 64.0;
+const STAR_HALO_CORE_SQUARED: f32 = ${(STAR_HALO_CORE_PIXELS * STAR_HALO_CORE_PIXELS).toFixed(4)};
+const STAR_HALO_FALLOFF_POWER: f32 = ${STAR_HALO_FALLOFF_POWER.toFixed(4)};
+const STAR_HALO_NORMALIZATION: f32 = ${((STAR_HALO_FALLOFF_POWER - 1) / (Math.PI * STAR_HALO_CORE_PIXELS * STAR_HALO_CORE_PIXELS)).toFixed(6)};
+
+struct StarLayer {
+  cellsPerWarpedUnit: f32,
+  presence: f32,
+  bandPresenceGain: f32,
+  inverseFluxBrightest: f32,
+  inverseFluxFaintest: f32,
+  fluxPerCellAtMagnitudeZero: f32,
+  haloRadius: f32,
+  haloFraction: f32,
+}
+
+
+struct CubeFace {
+  index: u32,
+  normal: vec3f,
+  axisU: vec3f,
+  axisV: vec3f,
+}
+
+fn selectCubeFace(direction: vec3f) -> CubeFace {
+  let magnitude = abs(direction);
+  var face: CubeFace;
+  if (magnitude.x >= magnitude.y && magnitude.x >= magnitude.z) {
+    let s = select(-1.0, 1.0, direction.x > 0.0);
+    face.index = select(1u, 0u, direction.x > 0.0);
+    face.normal = vec3f(s, 0.0, 0.0);
+    face.axisU = vec3f(0.0, 0.0, -s);
+    face.axisV = vec3f(0.0, 1.0, 0.0);
+  } else if (magnitude.y >= magnitude.z) {
+    let s = select(-1.0, 1.0, direction.y > 0.0);
+    face.index = select(3u, 2u, direction.y > 0.0);
+    face.normal = vec3f(0.0, s, 0.0);
+    face.axisU = vec3f(1.0, 0.0, 0.0);
+    face.axisV = vec3f(0.0, 0.0, -s);
+  } else {
+    let s = select(-1.0, 1.0, direction.z > 0.0);
+    face.index = select(5u, 4u, direction.z > 0.0);
+    face.normal = vec3f(0.0, 0.0, s);
+    face.axisU = vec3f(s, 0.0, 0.0);
+    face.axisV = vec3f(0.0, 1.0, 0.0);
+  }
+  return face;
+}
+
+fn cellRandom(cell: vec2f, salt: f32) -> vec3f {
+  var p = fract(vec3f(cell, salt) * vec3f(0.1031, 0.1030, 0.0973));
+  p += dot(p, p.yxz + 33.33);
+  return fract((p.xxy + p.yxx) * p.zyx);
+}
+
+fn cubicPolynomial(coefficients: vec4f, x: f32) -> f32 {
+  return coefficients.x + x * (coefficients.y + x * (coefficients.z + x * coefficients.w));
+}
+
+fn starColor(temperatureCoordinate: f32, redshiftShift: f32) -> vec3f {
+  let observed = clamp(temperatureCoordinate + redshiftShift, -1.2, 1.2);
+  let chromaticity = max(vec3f(cubicPolynomial(STAR_COLOR_RED, observed), cubicPolynomial(STAR_COLOR_GREEN, observed), cubicPolynomial(STAR_COLOR_BLUE, observed)), vec3f(0.0));
+  return chromaticity * exp2(cubicPolynomial(STAR_LOG_LUMINANCE, observed) - cubicPolynomial(STAR_LOG_LUMINANCE, temperatureCoordinate));
+}
+
+struct StarFrame {
+  warped: vec2f,
+  pixelsPerWarpedRowX: vec2f,
+  pixelsPerWarpedRowY: vec2f,
+  warpedArea: f32,
+  largestStretch: f32,
+  faceSalt: f32,
+  redshiftShift: f32,
+  bandStrength: f32,
+}
+
+fn starLayerRadiance(starFrame: StarFrame, layer: StarLayer, layerIndex: f32) -> vec3f {
+  let cellsPerWarpedUnit = layer.cellsPerWarpedUnit;
+  let stretchInCells = starFrame.largestStretch * cellsPerWarpedUnit;
+  let resolvedWeight = 1.0 - smoothstep(0.3, 0.6, stretchInCells);
+  let presence = min(layer.presence + layer.bandPresenceGain * starFrame.bandStrength, 0.95);
+  var radiance = vec3f(0.0);
+  if (presence <= 0.0 || resolvedWeight <= 0.0) {
+    return radiance;
+  }
+  let cellPosition = (starFrame.warped + 1.0) * cellsPerWarpedUnit;
+  let warpedPerCell = 1.0 / cellsPerWarpedUnit;
+  let fluxPerPixel = resolvedWeight / (starFrame.warpedArea * cellsPerWarpedUnit * cellsPerWarpedUnit);
+  let haloRadiusSquared = layer.haloRadius * layer.haloRadius;
+  let coreWeight = (1.0 - layer.haloFraction) * STAR_KERNEL_NORMALIZATION;
+  let haloWeight = layer.haloFraction * STAR_HALO_NORMALIZATION;
+  let supportRadiusSquared = max(STAR_PSF_RADIUS_SQUARED, haloRadiusSquared);
+  let cellLimit = 2.0 * cellsPerWarpedUnit;
+  let singleCell = stretchInCells * sqrt(supportRadiusSquared) < 0.2;
+  let baseCell = select(floor(cellPosition - 0.5), floor(cellPosition), singleCell);
+  let cornerCount = select(4u, 1u, singleCell);
+  let salt = starFrame.faceSalt + layerIndex * 101.0;
+  for (var corner = 0u; corner < cornerCount; corner++) {
+    let cell = baseCell + vec2f(f32(corner & 1u), f32(corner >> 1u));
+    if (cell.x < 0.0 || cell.y < 0.0 || cell.x >= cellLimit || cell.y >= cellLimit) {
+      continue;
+    }
+    let draw = cellRandom(cell, salt);
+    if (draw.x >= presence) {
+      continue;
+    }
+    let jitter = draw.yz * 0.6 + 0.2;
+    let offsetWarped = (cell + jitter - cellPosition) * warpedPerCell;
+    let offsetPixels = vec2f(dot(starFrame.pixelsPerWarpedRowX, offsetWarped), dot(starFrame.pixelsPerWarpedRowY, offsetWarped));
+    let distanceSquared = dot(offsetPixels, offsetPixels);
+    if (distanceSquared > supportRadiusSquared) {
+      continue;
+    }
+    let details = cellRandom(cell + 0.5, salt + 57.0);
+    let temperatureCoordinate = select(-0.63 + 0.62 * details.y, 0.17 + 0.82 * details.z, details.y > 0.86);
+    let flux = layer.fluxPerCellAtMagnitudeZero / mix(layer.inverseFluxBrightest, layer.inverseFluxFaintest, details.x);
+    let coreFalloff = max(1.0 - distanceSquared * (1.0 / STAR_PSF_RADIUS_SQUARED), 0.0);
+    var kernel = coreWeight * coreFalloff * coreFalloff * coreFalloff;
+    if (haloWeight > 0.0) {
+      let haloTaper = max(1.0 - distanceSquared / haloRadiusSquared, 0.0);
+      kernel += haloWeight * pow(1.0 + distanceSquared / STAR_HALO_CORE_SQUARED, -STAR_HALO_FALLOFF_POWER) * haloTaper * haloTaper;
+    }
+    radiance += (flux * fluxPerPixel * kernel) * starColor(temperatureCoordinate, starFrame.redshiftShift);
+  }
+  return radiance;
+}
+
+fn starRadiance(direction: vec3f, ddx: vec3f, ddy: vec3f, skyRedshift: f32, bandStrength: f32) -> vec3f {
+  let face = selectCubeFace(direction);
+  let along = dot(direction, face.normal);
+  let planeU = dot(direction, face.axisU) / along;
+  let planeV = dot(direction, face.axisV) / along;
+  let gradientU = ((4.0 / PI) / (1.0 + planeU * planeU)) * (face.axisU - planeU * face.normal) / along;
+  let gradientV = ((4.0 / PI) / (1.0 + planeV * planeV)) * (face.axisV - planeV * face.normal) / along;
+  let warpedPerPixelX = vec2f(dot(gradientU, ddx), dot(gradientV, ddx));
+  let warpedPerPixelY = vec2f(dot(gradientU, ddy), dot(gradientV, ddy));
+  let unlensedWarpedArea = frame.skyPixelAngle * frame.skyPixelAngle * abs(dot(cross(gradientU, gradientV), direction));
+  let signedArea = warpedPerPixelX.x * warpedPerPixelY.y - warpedPerPixelX.y * warpedPerPixelY.x;
+  let warpedArea = max(abs(signedArea), unlensedWarpedArea / STAR_MAX_MAGNIFICATION);
+  let frobenius = dot(warpedPerPixelX, warpedPerPixelX) + dot(warpedPerPixelY, warpedPerPixelY);
+  let determinant = select(-warpedArea, warpedArea, signedArea >= 0.0);
+  var starFrame: StarFrame;
+  starFrame.warped = vec2f(atan(planeU), atan(planeV)) * (4.0 / PI);
+  starFrame.pixelsPerWarpedRowX = vec2f(warpedPerPixelY.y, -warpedPerPixelY.x) / determinant;
+  starFrame.pixelsPerWarpedRowY = vec2f(-warpedPerPixelX.y, warpedPerPixelX.x) / determinant;
+  starFrame.warpedArea = warpedArea;
+  starFrame.largestStretch = sqrt(0.5 * (frobenius + sqrt(max(frobenius * frobenius - 4.0 * signedArea * signedArea, 0.0))));
+  starFrame.faceSalt = f32(face.index) * 17.0 + 3.0;
+  starFrame.redshiftShift = log2(max(skyRedshift, 1e-3)) * 0.5;
+  starFrame.bandStrength = bandStrength;
+  var radiance = vec3f(0.0);
+${STAR_LAYERS.map((layer, index) => `  radiance += starLayerRadiance(starFrame, StarLayer(${layer.cellsPerWarpedUnit.toFixed(1)}, ${layer.presence.toFixed(4)}, ${layer.bandPresenceGain.toFixed(4)}, ${layer.inverseFluxBrightest.toExponential(6)}, ${layer.inverseFluxFaintest.toExponential(6)}, ${layer.fluxPerCellAtMagnitudeZero.toExponential(6)}, ${layer.haloRadiusPixels.toFixed(4)}, ${layer.haloFraction.toFixed(4)}), ${index}.0);`).join('\n')}
+  return radiance;
+}
+
+fn galaxyRadiance(direction: vec3f, ddx: vec3f, ddy: vec3f, skyRedshift: f32) -> vec3f {
+  let texel = textureSampleGrad(galaxyTexture, linearSampler, direction, ddx, ddy);
+  if (abs(skyRedshift - 1.0) < 1e-3) {
+    return texel.rgb;
+  }
+  let effectiveTemperature = max(texel.a * 10000.0, 1000.0);
+  let rest = blackbodyRadiance(effectiveTemperature);
+  let observed = blackbodyRadiance(effectiveTemperature * skyRedshift);
+  return texel.rgb * observed / max(rest, vec3f(1e-6));
+}
+
+fn skyRadiance(internalPosition: vec2f, internalPerSky: vec2f) -> vec3f {
+  let texelPosition = internalPosition - 0.5;
+  let baseTexel = floor(texelPosition);
+  let blend = texelPosition - baseTexel;
+  let maxTexel = vec2i(frame.internalSize) - 1;
+  let origin = vec2i(baseTexel);
+  let s00 = textureLoad(skyDirectionTexture, clamp(origin, vec2i(0), maxTexel), 0);
+  let s10 = textureLoad(skyDirectionTexture, clamp(origin + vec2i(1, 0), vec2i(0), maxTexel), 0);
+  let s01 = textureLoad(skyDirectionTexture, clamp(origin + vec2i(0, 1), vec2i(0), maxTexel), 0);
+  let s11 = textureLoad(skyDirectionTexture, clamp(origin + vec2i(1, 1), vec2i(0), maxTexel), 0);
+  let valid = vec4f(step(1e-6, s00.w), step(1e-6, s10.w), step(1e-6, s01.w), step(1e-6, s11.w));
+  let weights = vec4f((1.0 - blend.x) * (1.0 - blend.y), blend.x * (1.0 - blend.y), (1.0 - blend.x) * blend.y, blend.x * blend.y) * valid;
+  let totalWeight = weights.x + weights.y + weights.z + weights.w;
+  if (totalWeight < 1e-5) {
+    return vec3f(0.0);
+  }
+  let direction = normalize(s00.xyz * weights.x + s10.xyz * weights.y + s01.xyz * weights.z + s11.xyz * weights.w);
+  let skyRedshift = (s00.w * weights.x + s10.w * weights.y + s01.w * weights.z + s11.w * weights.w) / totalWeight;
+  var ddx = mix(s10.xyz - s00.xyz, s11.xyz - s01.xyz, blend.y) * internalPerSky.x;
+  var ddy = mix(s01.xyz - s00.xyz, s11.xyz - s10.xyz, blend.x) * internalPerSky.y;
+  if (valid.x * valid.y * valid.z * valid.w < 0.5) {
+    let helper = select(vec3f(1.0, 0.0, 0.0), vec3f(0.0, 1.0, 0.0), abs(direction.x) > 0.9);
+    let tangentA = normalize(cross(direction, helper));
+    let tangentB = cross(direction, tangentA);
+    ddx = tangentA * frame.skyPixelAngle * 6.0;
+    ddy = tangentB * frame.skyPixelAngle * 6.0;
+  }
+  let features = u32(frame.compositeFeatureMask);
+  var radiance = vec3f(0.0);
+  if ((features & 2u) != 0u) {
+    radiance += galaxyRadiance(direction, ddx, ddy, skyRedshift) * frame.skyBrightness;
+  }
+  if ((features & 1u) != 0u) {
+    let bandStrength = clamp(luminance(textureSampleLevel(galaxyTexture, linearSampler, direction, 4.0).rgb) / GALAXY_BAND_FULL_LUMINANCE, 0.0, 1.0);
+    radiance += starRadiance(direction, ddx, ddy, skyRedshift, bandStrength) * frame.starBrightness;
+  }
+  return radiance;
+}
+
+@fragment fn skyFragment(@builtin(position) fragCoord: vec4f) -> @location(0) vec4f {
+  let internalPerSky = frame.internalSize / frame.skySize;
+  return vec4f(skyRadiance(fragCoord.xy * internalPerSky, internalPerSky), 1.0);
+}
+`;
+
+const WGSL_COMPOSITE = `
+@group(1) @binding(0) var diskTexture: texture_2d<f32>;
+@group(1) @binding(1) var skyRadianceTexture: texture_2d<f32>;
+@group(1) @binding(2) var bloomTexture: texture_2d<f32>;
+@group(1) @binding(3) var linearSampler: sampler;
+
+fn agxContrast(x: vec3f) -> vec3f {
+  let x2 = x * x;
+  let x4 = x2 * x2;
+  return 15.5 * x4 * x2 - 40.14 * x4 * x + 31.96 * x4 - 6.868 * x2 * x + 0.4298 * x2 + 0.1191 * x - 0.00232;
+}
+
+fn agxToneMap(color: vec3f) -> vec3f {
+  let inset = mat3x3f(
+    vec3f(0.842479062253094, 0.0423282422610123, 0.0423756549057051),
+    vec3f(0.0784335999999992, 0.878468636469772, 0.0784336),
+    vec3f(0.0792237451477643, 0.0791661274605434, 0.879142973793104));
+  let outset = mat3x3f(
+    vec3f(1.19687900512017, -0.0528968517574562, -0.0529716355144438),
+    vec3f(-0.0980208811401368, 1.15190312990417, -0.0980434501171241),
+    vec3f(-0.0990297440797205, -0.0989611768448433, 1.15107367264116));
+  let minEv = -12.47393;
+  let maxEv = 4.026069;
+  var encoded = clamp(log2(max(inset * color, vec3f(1e-10))), vec3f(minEv), vec3f(maxEv));
+  encoded = agxContrast((encoded - minEv) / (maxEv - minEv));
+  if (frame.cinematicLook > 0.5) {
+    let graded = pow(max(encoded * vec3f(1.0, 0.92, 0.76), vec3f(0.0)), vec3f(1.2));
+    let gradedLuma = luminance(graded);
+    encoded = gradedLuma + 1.3 * (graded - gradedLuma);
+  } else {
+    let graded = pow(max(encoded, vec3f(0.0)), vec3f(1.1));
+    let gradedLuma = luminance(graded);
+    encoded = gradedLuma + 1.2 * (graded - gradedLuma);
+  }
+  return clamp(outset * encoded, vec3f(0.0), vec3f(1.0));
+}
+
+@fragment fn compositeFragment(@builtin(position) fragCoord: vec4f) -> @location(0) vec4f {
+  let internalPerOutput = frame.internalSize / frame.outputSize;
+  let internalPosition = fragCoord.xy * internalPerOutput;
+  let diskUv = clamp(internalPosition, vec2f(0.5), frame.internalSize - 0.5) / frame.renderTargetSize;
+  let disk = textureSampleLevel(diskTexture, linearSampler, diskUv, 0.0);
+  let outputUv = fragCoord.xy / frame.outputSize;
+  var scene = disk.rgb + disk.a * textureSampleLevel(skyRadianceTexture, linearSampler, outputUv, 0.0).rgb;
+  scene += frame.bloomStrength * textureSampleLevel(bloomTexture, linearSampler, outputUv, 0.0).rgb;
+  let centered = (fragCoord.xy / frame.outputSize - 0.5) * vec2f(frame.outputSize.x / frame.outputSize.y, 1.0);
+  scene *= 1.0 - frame.vignetteStrength * dot(centered, centered);
+  var color = agxToneMap(scene * frame.exposure);
+  if (frame.debugView > 0.5) {
+    color = clamp(disk.rgb * 0.25, vec3f(0.0), vec3f(1.0));
+  }
+  let pixelSeed = u32(fragCoord.x) * 1973u + u32(fragCoord.y) * 9277u + u32(frame.frameIndex) * 26699u;
+  let grain = hashToUnit(pixelSeed) + hashToUnit(pixelSeed ^ 0x5bd1e995u) - 1.0;
+  let luma = luminance(color);
+  color += grain * frame.grainStrength * (0.12 + 2.4 * luma * (1.0 - luma));
+  return vec4f(color, 1.0);
+}
+`;
+
+const WGSL_GALAXY = `
+struct GalaxyFace {
+  faceIndex: f32,
+  faceSize: f32,
+  unusedA: f32,
+  unusedB: f32,
+}
+@group(0) @binding(0) var<uniform> galaxyFace: GalaxyFace;
+@group(0) @binding(1) var blackbodyTable: texture_2d<f32>;
+
+fn sphereFbm(position: vec3f, octaves: i32) -> f32 {
+  var sum = 0.0;
+  var amplitude = 0.5;
+  var samplePosition = position;
+  for (var octave = 0; octave < octaves; octave++) {
+    sum += amplitude * gradientNoise(samplePosition);
+    samplePosition = samplePosition * 2.03 + vec3f(5.1, 1.3, 7.7);
+    amplitude *= 0.5;
+  }
+  return sum;
+}
+
+fn cubeTexelDirection(face: u32, uv: vec2f) -> vec3f {
+  let sc = uv.x * 2.0 - 1.0;
+  let tc = uv.y * 2.0 - 1.0;
+  switch (face) {
+    case 0u: { return vec3f(1.0, -tc, -sc); }
+    case 1u: { return vec3f(-1.0, -tc, sc); }
+    case 2u: { return vec3f(sc, 1.0, tc); }
+    case 3u: { return vec3f(sc, -1.0, -tc); }
+    case 4u: { return vec3f(sc, -tc, 1.0); }
+    default: { return vec3f(-sc, -tc, -1.0); }
+  }
+}
+
+@fragment fn galaxyFragment(@builtin(position) fragCoord: vec4f) -> @location(0) vec4f {
+  let direction = normalize(cubeTexelDirection(u32(galaxyFace.faceIndex), fragCoord.xy / galaxyFace.faceSize));
+  let north = normalize(vec3f(0.45, 0.89, 0.0));
+  let centerGuess = normalize(vec3f(0.0, 0.0, -1.0) + 0.13 * vec3f(0.89, -0.45, 0.0));
+  let center = normalize(centerGuess - dot(centerGuess, north) * north);
+  let east = cross(north, center);
+  let latitude = asin(clamp(dot(direction, north), -1.0, 1.0));
+  let longitude = atan2(dot(direction, east), dot(direction, center));
+  let warp = vec3f(sphereFbm(direction * 3.0 + vec3f(11.0, 0.0, 0.0), 4), sphereFbm(direction * 3.0 + vec3f(0.0, 23.0, 0.0), 4), 0.0) * 0.06;
+  let warpedLatitude = latitude + warp.x;
+  let thickness = 0.06 + 0.035 * exp(-longitude * longitude * 1.5);
+  let diskProfile = exp(-abs(warpedLatitude) / thickness) * (0.28 + 0.72 * exp(-longitude * longitude / 1.1));
+  let bulgeProfile = exp(-(longitude * longitude + 2.4 * warpedLatitude * warpedLatitude) / (2.0 * 0.11 * 0.11));
+  let clouds = sphereFbm(direction * 9.0, 6);
+  let cloudBrightness = clamp(0.55 + 1.4 * clouds, 0.15, 1.8);
+  let dustNoise = sphereFbm(direction * 14.0 + vec3f(4.0, 9.0, 2.0), 6);
+  let dustLane = exp(-pow(abs(warpedLatitude + 0.012) / 0.03, 1.6)) * smoothstep(-0.25, 0.35, dustNoise) * 2.6
+    + exp(-abs(warpedLatitude) / 0.09) * smoothstep(0.15, 0.55, sphereFbm(direction * 26.0, 4)) * 0.9;
+  let reddening = exp(-dustLane * vec3f(0.82, 1.0, 1.25));
+  let diskLight = diskProfile * cloudBrightness * 0.85 * blackbodyChromaticity(6400.0);
+  let bulgeLight = bulgeProfile * 2.2 * blackbodyChromaticity(4300.0);
+  let youngLight = diskProfile * max(clouds - 0.12, 0.0) * 1.4 * blackbodyChromaticity(12000.0);
+  let background = vec3f(0.0015) * blackbodyChromaticity(5200.0);
+  let radiance = (diskLight + bulgeLight + youngLight) * reddening + background;
+  let lightWeight = luminance(diskLight) + luminance(bulgeLight) + luminance(youngLight) + 1e-4;
+  let effectiveTemperature = (luminance(diskLight) * 6400.0 + luminance(bulgeLight) * 4300.0 + luminance(youngLight) * 12000.0 + 1e-4 * 5200.0) / lightWeight;
+  let reddenedTemperature = effectiveTemperature * mix(1.0, 0.75, clamp(dustLane * 0.4, 0.0, 1.0));
+  return vec4f(radiance * 0.014, reddenedTemperature / 10000.0);
+}
+`;
+
+const WGSL_MIP = `
+@group(0) @binding(0) var mipSource: texture_2d<f32>;
+
+@fragment fn mipFragment(@builtin(position) fragCoord: vec4f) -> @location(0) vec4f {
+  let destinationTexel = vec2i(fragCoord.xy);
+  let source = destinationTexel * 2;
+  let sum = textureLoad(mipSource, source, 0) + textureLoad(mipSource, source + vec2i(1, 0), 0)
+    + textureLoad(mipSource, source + vec2i(0, 1), 0) + textureLoad(mipSource, source + vec2i(1, 1), 0);
+  return sum * 0.25;
+}
+`;
+
+function showNotice(html) {
+  document.getElementById('notice-card').innerHTML = html;
+  document.getElementById('notice').hidden = false;
+  document.getElementById('panel').classList.add('is-hidden');
+  document.getElementById('hint').classList.add('is-hidden');
+}
+
+const WEBGPU_HELP = `
+  <h1>This page needs WebGPU</h1>
+  <p>Your browser did not provide WebGPU, so the black hole cannot be drawn.</p>
+  <p>Open this file in <b>Google Chrome 113 or newer</b> (macOS, Windows or ChromeOS), or in <b>Safari on macOS 26 Tahoe</b>.</p>
+  <p>On Safari 17 or 18 (macOS 15 and earlier) you can switch it on:</p>
+  <ol>
+    <li>Safari, Settings, Advanced: turn on <code>Show features for web developers</code>.</li>
+    <li>Develop, Feature Flags: turn on <code>WebGPU</code>.</li>
+    <li>Quit Safari, open it again and reload this page.</li>
+  </ol>`;
+
+function vectorLength(v) { return Math.hypot(v[0], v[1], v[2]); }
+function normalizeVector(v) { const length = vectorLength(v); return [v[0] / length, v[1] / length, v[2] / length]; }
+function crossProduct(a, b) { return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]; }
+function dotProduct(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+function scaleVector(v, s) { return [v[0] * s, v[1] * s, v[2] * s]; }
+function addVectors(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; }
+function clampNumber(value, low, high) { return Math.min(Math.max(value, low), high); }
+const DEGREES = Math.PI / 180;
+
+function blackHoleAxesInWorld(tiltDegrees) {
+  const tilt = tiltDegrees * DEGREES;
+  return {
+    x: [1, 0, 0],
+    y: [0, Math.sin(tilt), -Math.cos(tilt)],
+    z: [0, Math.cos(tilt), Math.sin(tilt)],
+  };
+}
+
+function worldToBlackHole(axes, v) {
+  return [dotProduct(v, axes.x), dotProduct(v, axes.y), dotProduct(v, axes.z)];
+}
+
+function boyerLindquistRadius(spin, positionBh) {
+  const [x, y, z] = positionBh;
+  const squaredDistance = x * x + y * y + z * z;
+  const offset = squaredDistance - spin * spin;
+  const radiusSquared = 0.5 * (offset + Math.sqrt(offset * offset + 4 * spin * spin * z * z));
+  return Math.sqrt(Math.max(radiusSquared, 1e-12));
+}
+
+function cameraFrame(spin, positionBh) {
+  const r = boyerLindquistRadius(spin, positionBh);
+  const cosTheta = clampNumber(positionBh[2] / r, -0.999999, 0.999999);
+  const sinTheta = Math.sqrt(1 - cosTheta * cosTheta);
+  const phi = Math.atan2(positionBh[1], positionBh[0]);
+  const cosPhi = Math.cos(phi);
+  const sinPhi = Math.sin(phi);
+  const sigma = r * r + spin * spin * cosTheta * cosTheta;
+  const delta = r * r - 2 * r + spin * spin;
+  const bigA = (r * r + spin * spin) ** 2 - spin * spin * delta * sinTheta * sinTheta;
+  const lapse = Math.sqrt((sigma * delta) / bigA);
+  const frameDragOmega = (2 * spin * r) / bigA;
+  const cylindricalRadius = Math.sqrt(bigA / sigma) * sinTheta;
+  const spheroidalRadius = Math.sqrt(r * r + spin * spin);
+  return {
+    r, sinTheta, cosTheta, phi, sigma, delta, bigA, lapse, frameDragOmega, cylindricalRadius,
+    sphereUnit: [sinTheta * cosPhi, sinTheta * sinPhi, cosTheta],
+    sphereThetaHat: [cosTheta * cosPhi, cosTheta * sinPhi, -sinTheta],
+    phiHat: [-sinPhi, cosPhi, 0],
+    radialHat: normalizeVector([(r / spheroidalRadius) * sinTheta * cosPhi, (r / spheroidalRadius) * sinTheta * sinPhi, cosTheta]),
+    polarHat: normalizeVector([spheroidalRadius * cosTheta * cosPhi, spheroidalRadius * cosTheta * sinPhi, -r * sinTheta]),
+  };
+}
+
+const ORBIT_ELEVATION_LIMIT = 85 * DEGREES;
+const ORBIT_MAX_DISTANCE = 400;
+const DRAG_RADIANS_PER_PIXEL = 0.005;
+const ARROW_KEY_RADIANS_PER_SECOND = 0.6;
+const WHEEL_ZOOM_PER_PIXEL = 0.0012;
+const PINCH_WHEEL_ZOOM_PER_PIXEL = 0.01;
+const KEY_ZOOM_STEP = 0.06;
+
+const camera = {
+  orbitDistance: 25.6,
+  orbitAzimuth: 0,
+  orbitElevation: 5.8 * DEGREES,
+};
+
+(function applyCameraParam() {
+  const raw = searchParams.get('cam');
+  if (!raw) return;
+  const values = raw.split(',').map(Number);
+  if (values.length >= 3 && values.every(Number.isFinite)) {
+    camera.orbitDistance = values[0];
+    camera.orbitAzimuth = values[1] * DEGREES;
+    camera.orbitElevation = clampNumber(values[2] * DEGREES, -ORBIT_ELEVATION_LIMIT, ORBIT_ELEVATION_LIMIT);
+  }
+})();
+
+function cameraBasis() {
+  const cosElevation = Math.cos(camera.orbitElevation);
+  const position = [
+    camera.orbitDistance * cosElevation * Math.sin(camera.orbitAzimuth),
+    camera.orbitDistance * Math.sin(camera.orbitElevation),
+    camera.orbitDistance * cosElevation * Math.cos(camera.orbitAzimuth),
+  ];
+  const forward = normalizeVector(scaleVector(position, -1));
+  const right = normalizeVector(crossProduct(forward, [0, 1, 0]));
+  const up = crossProduct(right, forward);
+  return { position, forward, right, up };
+}
+
+function minimumCameraRadius() {
+  return horizonRadius(settings.spin) + 0.6;
+}
+
+function zoomCameraBy(logDistanceChange) {
+  camera.orbitDistance = clampNumber(camera.orbitDistance * Math.exp(logDistanceChange), minimumCameraRadius() + 0.2, ORBIT_MAX_DISTANCE);
+}
+
+const input = { keys: new Set(), dragDelta: [0, 0], pointers: new Map(), pinchDistance: 0, lastInteraction: performance.now() };
+
+const state = {
+  device: null,
+  context: null,
+  canvas: document.getElementById('view'),
+  format: null,
+  timestampsSupported: false,
+  diskModel: pageThorneDiskModel(settings.spin),
+  blackbodyTable: buildBlackbodyTable(),
+  frameIndex: 0,
+  renderScale: pinnedScale ?? 0.6,
+  angleScale: 1,
+  framesSinceScaleChange: 0,
+  lastRenderTime: 0,
+  callbackCount: 0,
+  displayIntervals: [],
+  fpsWindow: [],
+  lastGpuMs: 0,
+  startTime: performance.now(),
+  autoExposure: 1,
+  exposureReadbackBusy: false,
+  lastExposureUpdate: 0,
+};
+
+const uniformData = new Float32Array(frameLayout.floatCount);
+
+function setUniform(name, value) {
+  const offset = frameLayout.offsets[name];
+  if (offset === undefined) throw new Error(`Unknown uniform ${name}`);
+  if (typeof value === 'number') uniformData[offset] = value;
+  else uniformData.set(value, offset);
+}
+
+function writeCameraUniforms(spin, frameData, basisBh, axes) {
+  setUniform('cameraSphereUnit', frameData.sphereUnit);
+  setUniform('cameraInverseRadius', 1 / frameData.r);
+  setUniform('cameraSphereThetaHat', frameData.sphereThetaHat);
+  setUniform('cameraSqrtSigma', Math.sqrt(frameData.sigma));
+  setUniform('cameraPhiHat', frameData.phiHat);
+  setUniform('cameraAzimuthalScale', Math.sqrt(frameData.bigA / frameData.sigma));
+  setUniform('cameraRadialHat', frameData.radialHat);
+  setUniform('cameraRadialRateScale', Math.sqrt(frameData.sigma * frameData.delta) / (frameData.r * frameData.r));
+  setUniform('cameraPolarHat', frameData.polarHat);
+  setUniform('cameraLapse', frameData.lapse);
+  setUniform('cameraRight', basisBh.right);
+  setUniform('cameraFrameDragVelocity', frameData.frameDragOmega * frameData.cylindricalRadius);
+  setUniform('cameraUp', basisBh.up);
+  setUniform('cameraCylindricalRadius', frameData.cylindricalRadius);
+  setUniform('cameraForward', basisBh.forward);
+  setUniform('cameraCosThetaSquared', frameData.cosTheta * frameData.cosTheta);
+  setUniform('cameraAOverSigma', frameData.bigA / frameData.sigma);
+  setUniform('worldFromBhX', axes.x);
+  setUniform('worldFromBhY', axes.y);
+  setUniform('worldFromBhZ', axes.z);
+  setUniform('spin', spin);
+  setUniform('horizonStopW', 1 / (horizonRadius(spin) * 1.003));
+  setUniform('horizonW', 1 / horizonRadius(spin));
+  setUniform('diskZoneW', 1 / (0.95 * iscoRadius(Math.max(spin, 0))));
+}
+
+function writeDiskUniforms() {
+  const model = state.diskModel;
+  setUniform('diskInnerRadius', model.innerRadius);
+  setUniform('diskOuterRadius', DISK_OUTER_RADIUS);
+  setUniform('fluxX0', model.x0);
+  setUniform('fluxX1', model.x1);
+  setUniform('fluxX2', model.x2);
+  setUniform('fluxX3', model.x3);
+  setUniform('fluxWeight1', model.weight1);
+  setUniform('fluxWeight2', model.weight2);
+  setUniform('fluxWeight3', model.weight3);
+  setUniform('inverseMaxFlux', 1 / model.maxFlux);
+  setUniform('fluxLogX0', model.logX0);
+  setUniform('fluxLogOffset1', model.logOffset1);
+  setUniform('fluxLogOffset2', model.logOffset2);
+  setUniform('fluxLogOffset3', model.logOffset3);
+  setUniform('diskPeakTemperature', settings.diskTemperature);
+  setUniform('diskOpacity', 2.2);
+  setUniform('cinematicColor', settings.colorMode === 'cinematic' ? 1 : 0);
+  setUniform('cinematicLook', settings.colorMode === 'cinematic' ? 1 : 0);
+}
+
+function writeStepUniforms() {
+  const quality = 192 / clampNumber(settings.maxSteps, 32, 512);
+  const angleScale = state.angleScale * clampNumber(Math.sqrt(quality), 0.75, 1.6);
+  setUniform('stepAngleNear', 0.1 * angleScale);
+  setUniform('stepAngleFar', 0.35 * angleScale);
+  setUniform('maxSteps', settings.maxSteps);
+  setUniform('stepRadialSpan', 0.1);
+}
+
+function writeViewUniforms(outputWidth, outputHeight, internalWidth, internalHeight, time) {
+  const tanHalf = Math.tan(settings.fieldOfViewDegrees * DEGREES * 0.5);
+  setUniform('tanHalfFovY', tanHalf);
+  setUniform('aspectRatio', outputWidth / outputHeight);
+  setUniform('internalSize', [internalWidth, internalHeight]);
+  setUniform('outputSize', [outputWidth, outputHeight]);
+  setUniform('bloomSize', [state.bloomLevels?.[0]?.width ?? 1, state.bloomLevels?.[0]?.height ?? 1]);
+  setUniform('frameIndex', state.frameIndex % 65536);
+  setUniform('pixelAngle', (2 * tanHalf) / outputHeight);
+  const skyLevel = state.skyRadiance;
+  setUniform('skySize', [skyLevel?.width ?? 1, skyLevel?.height ?? 1]);
+  setUniform('skyPixelAngle', (2 * tanHalf) / (skyLevel?.height ?? outputHeight));
+  setUniform('diskTime', time);
+  setUniform('exposure', state.autoExposure * Math.pow(2, settings.exposure));
+  setUniform('bloomStrength', settings.bloomStrength);
+  setUniform('grainStrength', settings.grainStrength);
+  setUniform('skyBrightness', settings.skyBrightness);
+  setUniform('starBrightness', settings.starBrightness);
+  setUniform('vignetteStrength', 0.18);
+  setUniform('debugView', settings.debugView);
+  setUniform('compositeFeatureMask', settings.compositeFeatureMask);
+}
+
+function updateUniformsForView(outputWidth, outputHeight, internalWidth, internalHeight, time) {
+  const axes = blackHoleAxesInWorld(settings.diskTilt);
+  const basis = cameraBasis();
+  const positionBh = worldToBlackHole(axes, basis.position);
+  if (Math.abs(positionBh[2]) < 1e-3) positionBh[2] = positionBh[2] < 0 ? -1e-3 : 1e-3;
+  const basisBh = {
+    forward: worldToBlackHole(axes, basis.forward),
+    right: worldToBlackHole(axes, basis.right),
+    up: worldToBlackHole(axes, basis.up),
+  };
+  writeCameraUniforms(settings.spin, cameraFrame(settings.spin, positionBh), basisBh, axes);
+  writeDiskUniforms();
+  writeStepUniforms();
+  writeViewUniforms(outputWidth, outputHeight, internalWidth, internalHeight, time);
+}
+
+async function compileShaderModule(device, label, code) {
+  const module = device.createShaderModule({ label, code });
+  if (module.getCompilationInfo) {
+    const info = await module.getCompilationInfo();
+    const errors = info.messages.filter((message) => message.type === 'error');
+    for (const message of info.messages) {
+      const text = `${label} ${message.type} at line ${message.lineNum}:${message.linePos}: ${message.message}`;
+      if (message.type === 'error') console.error(text); else console.warn(text);
+    }
+    if (errors.length) throw new Error(`${label}: ${errors[0].message} (line ${errors[0].lineNum})`);
+  }
+  return module;
+}
+
+function createMipGenerator(device, mipModule) {
+  const layout = device.createBindGroupLayout({
+    entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } }],
+  });
+  const pipeline = device.createRenderPipeline({
+    label: 'mip generation',
+    layout: device.createPipelineLayout({ bindGroupLayouts: [layout] }),
+    vertex: { module: mipModule, entryPoint: 'fullscreenVertex' },
+    fragment: { module: mipModule, entryPoint: 'mipFragment', targets: [{ format: 'rgba16float' }] },
+    primitive: { topology: 'triangle-list' },
+  });
+  const layerView = (texture, layer, level) => texture.createView({ dimension: '2d', baseArrayLayer: layer, arrayLayerCount: 1, baseMipLevel: level, mipLevelCount: 1 });
+  return {
+    layerView,
+    encode(encoder, texture, layerCount, levelCount) {
+      for (let level = 1; level < levelCount; level++) {
+        for (let layer = 0; layer < layerCount; layer++) {
+          const pass = encoder.beginRenderPass({
+            colorAttachments: [{ view: layerView(texture, layer, level), loadOp: 'clear', storeOp: 'store', clearValue: [0, 0, 0, 0] }],
+          });
+          pass.setPipeline(pipeline);
+          pass.setBindGroup(0, device.createBindGroup({ layout, entries: [{ binding: 0, resource: layerView(texture, layer, level - 1) }] }));
+          pass.draw(3);
+          pass.end();
+        }
+      }
+    },
+  };
+}
+
+function createGalaxyCubemap(device, blackbodyTexture, galaxyModule, mipGenerator) {
+  const mipLevelCount = Math.log2(GALAXY_FACE_SIZE) + 1;
+  const texture = device.createTexture({
+    label: 'galaxy cubemap',
+    size: [GALAXY_FACE_SIZE, GALAXY_FACE_SIZE, 6],
+    format: 'rgba16float',
+    mipLevelCount,
+    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT,
+  });
+  const galaxyLayout = device.createBindGroupLayout({
+    entries: [
+      { binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
+      { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'unfilterable-float' } },
+    ],
+  });
+  const galaxyPipeline = device.createRenderPipeline({
+    label: 'galaxy generation',
+    layout: device.createPipelineLayout({ bindGroupLayouts: [galaxyLayout] }),
+    vertex: { module: galaxyModule, entryPoint: 'fullscreenVertex' },
+    fragment: { module: galaxyModule, entryPoint: 'galaxyFragment', targets: [{ format: 'rgba16float' }] },
+    primitive: { topology: 'triangle-list' },
+  });
+  const encoder = device.createCommandEncoder({ label: 'galaxy build' });
+  for (let face = 0; face < 6; face++) {
+    const faceBuffer = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    device.queue.writeBuffer(faceBuffer, 0, new Float32Array([face, GALAXY_FACE_SIZE, 0, 0]));
+    const pass = encoder.beginRenderPass({
+      colorAttachments: [{ view: mipGenerator.layerView(texture, face, 0), loadOp: 'clear', storeOp: 'store', clearValue: [0, 0, 0, 0] }],
+    });
+    pass.setPipeline(galaxyPipeline);
+    pass.setBindGroup(0, device.createBindGroup({
+      layout: galaxyLayout,
+      entries: [{ binding: 0, resource: { buffer: faceBuffer } }, { binding: 1, resource: blackbodyTexture.createView() }],
+    }));
+    pass.draw(3);
+    pass.end();
+  }
+  mipGenerator.encode(encoder, texture, 6, mipLevelCount);
+  device.queue.submit([encoder.finish()]);
+  return texture;
+}
+
+function createDiskNoiseTexture(device, noiseModule, mipGenerator) {
+  const mipLevelCount = Math.log2(Math.max(DISK_NOISE_WIDTH, DISK_NOISE_HEIGHT)) + 1;
+  const texture = device.createTexture({
+    label: 'disk turbulence',
+    size: [DISK_NOISE_WIDTH, DISK_NOISE_HEIGHT, 1],
+    format: 'rgba16float',
+    mipLevelCount,
+    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT,
+  });
+  const layout = device.createBindGroupLayout({
+    entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } }],
+  });
+  const pipeline = device.createRenderPipeline({
+    label: 'disk turbulence generation',
+    layout: device.createPipelineLayout({ bindGroupLayouts: [layout] }),
+    vertex: { module: noiseModule, entryPoint: 'fullscreenVertex' },
+    fragment: { module: noiseModule, entryPoint: 'diskNoiseFragment', targets: [{ format: 'rgba16float' }] },
+    primitive: { topology: 'triangle-list' },
+  });
+  const sizeBuffer = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+  device.queue.writeBuffer(sizeBuffer, 0, new Float32Array([DISK_NOISE_WIDTH, DISK_NOISE_HEIGHT, 0, 0]));
+  const encoder = device.createCommandEncoder({ label: 'disk turbulence build' });
+  const pass = encoder.beginRenderPass({
+    colorAttachments: [{ view: mipGenerator.layerView(texture, 0, 0), loadOp: 'clear', storeOp: 'store', clearValue: [0, 0, 0, 0] }],
+  });
+  pass.setPipeline(pipeline);
+  pass.setBindGroup(0, device.createBindGroup({ layout, entries: [{ binding: 0, resource: { buffer: sizeBuffer } }] }));
+  pass.draw(3);
+  pass.end();
+  mipGenerator.encode(encoder, texture, 1, mipLevelCount);
+  device.queue.submit([encoder.finish()]);
+  return texture;
+}
+
+function makeFrameBindGroup(uniformBuffer) {
+  return state.device.createBindGroup({
+    layout: state.frameLayout,
+    entries: [
+      { binding: 0, resource: { buffer: uniformBuffer } },
+      { binding: 1, resource: state.blackbodyTexture.createView() },
+      { binding: 2, resource: state.diskNoiseTexture.createView() },
+      { binding: 3, resource: state.repeatSampler },
+    ],
+  });
+}
+
+async function createRenderer() {
+  if (!navigator.gpu) {
+    showNotice(WEBGPU_HELP);
+    return false;
+  }
+  const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+  if (!adapter) {
+    showNotice(WEBGPU_HELP.replace('Your browser did not provide WebGPU', 'Your browser has WebGPU but could not find a usable graphics adapter'));
+    return false;
+  }
+  const requiredFeatures = adapter.features.has('timestamp-query') ? ['timestamp-query'] : [];
+  const device = await adapter.requestDevice({ requiredFeatures });
+  state.device = device;
+  state.adapterInfo = adapter.info ? { vendor: adapter.info.vendor, architecture: adapter.info.architecture } : {};
+  state.timestampsSupported = requiredFeatures.includes('timestamp-query');
+  device.addEventListener('uncapturederror', (event) => console.error('WebGPU error:', event.error.message));
+  device.lost.then((info) => {
+    if (info.reason !== 'destroyed') showNotice(`<h1>The graphics device was lost</h1><p>${info.message || 'The GPU reset or the tab was suspended.'}</p><p>Reload the page to start again.</p>`);
+  });
+
+  state.context = state.canvas.getContext('webgpu');
+  state.format = navigator.gpu.getPreferredCanvasFormat();
+  state.context.configure({ device, format: state.format, alphaMode: 'opaque' });
+
+  state.blackbodyTexture = device.createTexture({
+    label: 'blackbody table', size: [BLACKBODY_TABLE_SIZE, 1], format: 'rgba32float',
+    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+  });
+  device.queue.writeTexture({ texture: state.blackbodyTexture }, state.blackbodyTable, { bytesPerRow: BLACKBODY_TABLE_SIZE * 16 }, [BLACKBODY_TABLE_SIZE, 1]);
+  document.documentElement.style.setProperty('--blackbody-ramp', `linear-gradient(90deg, ${[0, 0.2, 0.4, 0.6, 0.8, 1].map((t) => blackbodyCssColor(state.blackbodyTable, TEMPERATURE_SLIDER_MIN * Math.pow(TEMPERATURE_SLIDER_MAX / TEMPERATURE_SLIDER_MIN, t))).join(', ')})`);
+
+  state.traceModuleCode = WGSL_SHARED + WGSL_FRAME_BINDINGS + WGSL_BLACKBODY + WGSL_TRACE;
+  const [traceModule, bloomModule, compositeModule, skyModule, galaxyModule, mipModule, noiseModule] = await Promise.all([
+    compileShaderModule(device, 'trace', state.traceModuleCode),
+    compileShaderModule(device, 'bloom', WGSL_SHARED + WGSL_FRAME_BINDINGS + WGSL_BLOOM),
+    compileShaderModule(device, 'composite', WGSL_SHARED + WGSL_FRAME_BINDINGS + WGSL_COMPOSITE),
+    compileShaderModule(device, 'sky', WGSL_SHARED + WGSL_FRAME_BINDINGS + WGSL_BLACKBODY + WGSL_SKY),
+    compileShaderModule(device, 'galaxy', WGSL_SHARED + WGSL_BLACKBODY + WGSL_GALAXY),
+    compileShaderModule(device, 'mip', WGSL_SHARED + WGSL_MIP),
+    compileShaderModule(device, 'disk turbulence', WGSL_SHARED + WGSL_DISK_NOISE),
+  ]);
+  const mipGenerator = createMipGenerator(device, mipModule);
+  state.diskNoiseTexture = createDiskNoiseTexture(device, noiseModule, mipGenerator);
+  state.repeatSampler = device.createSampler({ magFilter: 'linear', minFilter: 'linear', mipmapFilter: 'linear', addressModeU: 'repeat', addressModeV: 'repeat' });
+
+  state.frameBuffer = device.createBuffer({ label: 'frame uniforms', size: frameLayout.byteSize, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+  state.linearSampler = device.createSampler({ magFilter: 'linear', minFilter: 'linear', mipmapFilter: 'linear', addressModeU: 'clamp-to-edge', addressModeV: 'clamp-to-edge' });
+
+  state.frameLayout = device.createBindGroupLayout({
+    label: 'frame layout',
+    entries: [
+      { binding: 0, visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+      { binding: 1, visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE, texture: { sampleType: 'unfilterable-float' } },
+      { binding: 2, visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE, texture: { sampleType: 'float' } },
+      { binding: 3, visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.COMPUTE, sampler: { type: 'filtering' } },
+    ],
+  });
+  state.frameBindGroup = makeFrameBindGroup(state.frameBuffer);
+
+  state.bloomLayout = device.createBindGroupLayout({
+    label: 'bloom layout',
+    entries: [
+      { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
+      { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
+      { binding: 2, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
+    ],
+  });
+  state.skyLayout = device.createBindGroupLayout({
+    label: 'sky layout',
+    entries: [
+      { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'unfilterable-float' } },
+      { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float', viewDimension: 'cube' } },
+      { binding: 2, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
+    ],
+  });
+  state.compositeLayout = device.createBindGroupLayout({
+    label: 'composite layout',
+    entries: [
+      { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
+      { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
+      { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } },
+      { binding: 3, visibility: GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } },
+    ],
+  });
+
+  const fullscreen = (module, entryPoint, targets, layouts, blend) => device.createRenderPipelineAsync({
+    label: entryPoint,
+    layout: device.createPipelineLayout({ bindGroupLayouts: layouts }),
+    vertex: { module, entryPoint: 'fullscreenVertex' },
+    fragment: { module, entryPoint, targets: targets.map((format) => (blend ? { format, blend } : { format })) },
+    primitive: { topology: 'triangle-list' },
+  });
+  const additive = { color: { srcFactor: 'one', dstFactor: 'one', operation: 'add' }, alpha: { srcFactor: 'one', dstFactor: 'one', operation: 'add' } };
+  [state.tracePipeline, state.skyPipeline, state.bloomDownPipeline, state.bloomUpPipeline, state.compositePipeline] = await Promise.all([
+    fullscreen(traceModule, 'traceFragment', ['rgba16float', 'rgba32float'], [state.frameLayout]),
+    fullscreen(skyModule, 'skyFragment', ['rgba16float'], [state.frameLayout, state.skyLayout]),
+    fullscreen(bloomModule, 'bloomDownsample', ['rgba16float'], [state.frameLayout, state.bloomLayout]),
+    fullscreen(bloomModule, 'bloomUpsample', ['rgba16float'], [state.frameLayout, state.bloomLayout], additive),
+    fullscreen(compositeModule, 'compositeFragment', [state.format], [state.frameLayout, state.compositeLayout]),
+  ]);
+
+  state.galaxyTexture = createGalaxyCubemap(device, state.blackbodyTexture, galaxyModule, mipGenerator);
+
+  if (state.timestampsSupported) {
+    state.querySet = device.createQuerySet({ type: 'timestamp', count: 4 });
+    state.queryResolveBuffer = device.createBuffer({ size: 32, usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC });
+    state.queryReadbackPool = Array.from({ length: 4 }, () => device.createBuffer({ size: 32, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST }));
+  }
+  return true;
+}
+
+function resizeCanvasIfNeeded() {
+  const dpr = window.devicePixelRatio || 1;
+  const width = Math.max(1, Math.round(state.canvas.clientWidth * dpr));
+  const height = Math.max(1, Math.round(state.canvas.clientHeight * dpr));
+  if (state.canvas.width !== width || state.canvas.height !== height) {
+    state.canvas.width = width;
+    state.canvas.height = height;
+  }
+  if (!state.bloomLevels || state.bloomLevels.outputWidth !== width || state.bloomLevels.outputHeight !== height) {
+    createBloomLevels(width, height);
+  }
+}
+
+function createBloomLevels(outputWidth, outputHeight) {
+  const device = state.device;
+  state.bloomLevels?.forEach((level) => level.texture.destroy());
+  const levels = [];
+  let width = Math.max(1, Math.floor(outputWidth / 4));
+  let height = Math.max(1, Math.floor(outputHeight / 4));
+  for (let i = 0; i < 6; i++) {
+    const texture = device.createTexture({
+      label: `bloom ${i}`, size: [width, height], format: 'rgba16float',
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
+    });
+    levels.push({ texture, view: texture.createView(), width, height });
+    width = Math.max(1, Math.floor(width / 2));
+    height = Math.max(1, Math.floor(height / 2));
+  }
+  levels.outputWidth = outputWidth;
+  levels.outputHeight = outputHeight;
+  state.bloomLevels = levels;
+  state.skyRadiance?.texture.destroy();
+  const skyWidth = Math.max(1, outputWidth);
+  const skyHeight = Math.max(1, outputHeight);
+  const skyTexture = device.createTexture({
+    label: 'sky radiance', size: [skyWidth, skyHeight], format: 'rgba16float',
+    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT,
+  });
+  state.skyRadiance = { texture: skyTexture, view: skyTexture.createView(), width: skyWidth, height: skyHeight };
+  state.bloomStageBuffers ??= Array.from({ length: 11 }, () => device.createBuffer({ size: 48, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }));
+  if (state.renderTargets) {
+    state.renderTargets.disk.destroy();
+    state.renderTargets.sky.destroy();
+  }
+  state.renderTargets = null;
+}
+
+function renderTargetAllocationScale(scale) {
+  return Math.min(1, Math.ceil(scale / RENDER_TARGET_SCALE_STEP - 1e-6) * RENDER_TARGET_SCALE_STEP);
+}
+
+const bloomStageData = new Float32Array(12);
+
+function writeBloomStage(index, sourceWidth, sourceHeight, targetLevel, firstStage, spacing, sourceUvExtent) {
+  const target = state.bloomLevels[targetLevel];
+  bloomStageData.set([1 / sourceWidth, 1 / sourceHeight, target.width, target.height, spacing[0], spacing[1], sourceUvExtent[0], sourceUvExtent[1], firstStage ? 1 : 0, 0, 0, 0]);
+  state.device.queue.writeBuffer(state.bloomStageBuffers[index], 0, bloomStageData);
+}
+
+function writeFirstBloomStage(internalWidth, internalHeight) {
+  const targets = state.renderTargets;
+  const level = state.bloomLevels[0];
+  const spacing = [Math.max(1, (internalWidth / level.width) * 0.5), Math.max(1, (internalHeight / level.height) * 0.5)];
+  writeBloomStage(0, targets.width, targets.height, 0, true, spacing, [internalWidth / targets.width, internalHeight / targets.height]);
+}
+
+function ensureRenderTargets(internalWidth, internalHeight, outputWidth, outputHeight, scale) {
+  const device = state.device;
+  const current = state.renderTargets;
+  const fits = current && internalWidth <= current.width && internalHeight <= current.height;
+  const wasteful = current && internalWidth * internalHeight < RENDER_TARGET_SHRINK_FRACTION * current.width * current.height;
+  if (fits && !wasteful) {
+    writeFirstBloomStage(internalWidth, internalHeight);
+    return;
+  }
+  if (current) {
+    current.disk.destroy();
+    current.sky.destroy();
+  }
+  const allocationScale = renderTargetAllocationScale(scale);
+  const width = Math.max(internalWidth, Math.round(outputWidth * allocationScale));
+  const height = Math.max(internalHeight, Math.round(outputHeight * allocationScale));
+  const disk = device.createTexture({ label: 'disk target', size: [width, height], format: 'rgba16float', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT });
+  const sky = device.createTexture({ label: 'sky target', size: [width, height], format: 'rgba32float', usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT });
+  const diskView = disk.createView();
+  const skyView = sky.createView();
+  const levels = state.bloomLevels;
+  const stages = [];
+  const stageBindGroup = (index, sourceView) => device.createBindGroup({
+    layout: state.bloomLayout,
+    entries: [{ binding: 0, resource: sourceView }, { binding: 1, resource: state.linearSampler }, { binding: 2, resource: { buffer: state.bloomStageBuffers[index] } }],
+  });
+  stages.push({ bindGroup: stageBindGroup(0, diskView), target: levels[0], additive: false });
+  for (let i = 1; i < levels.length; i++) {
+    writeBloomStage(i, levels[i - 1].width, levels[i - 1].height, i, false, [1, 1], [1, 1]);
+    stages.push({ bindGroup: stageBindGroup(i, levels[i - 1].view), target: levels[i], additive: false });
+  }
+  for (let i = levels.length - 2; i >= 0; i--) {
+    const index = levels.length + (levels.length - 2 - i);
+    writeBloomStage(index, levels[i + 1].width, levels[i + 1].height, i, false, [1, 1], [1, 1]);
+    stages.push({ bindGroup: stageBindGroup(index, levels[i + 1].view), target: levels[i], additive: true });
+  }
+  const skyBindGroup = device.createBindGroup({
+    layout: state.skyLayout,
+    entries: [
+      { binding: 0, resource: skyView },
+      { binding: 1, resource: state.galaxyTexture.createView({ dimension: 'cube' }) },
+      { binding: 2, resource: state.linearSampler },
+    ],
+  });
+  const compositeBindGroup = device.createBindGroup({
+    layout: state.compositeLayout,
+    entries: [
+      { binding: 0, resource: diskView },
+      { binding: 1, resource: state.skyRadiance.view },
+      { binding: 2, resource: levels[0].view },
+      { binding: 3, resource: state.linearSampler },
+    ],
+  });
+  state.renderTargets = { width, height, disk, sky, diskView, skyView, stages, skyBindGroup, compositeBindGroup };
+  state.renderTargetGeneration = (state.renderTargetGeneration ?? 0) + 1;
+  writeFirstBloomStage(internalWidth, internalHeight);
+}
+
+function encodeFrame(encoder, outputView, internalWidth, internalHeight) {
+  const targets = state.renderTargets;
+  const timestamps = state.timestampsSupported ? state.querySet : null;
+  const tracePass = encoder.beginRenderPass({
+    label: 'trace',
+    colorAttachments: [
+      { view: targets.diskView, loadOp: 'clear', storeOp: 'store', clearValue: [0, 0, 0, 0] },
+      { view: targets.skyView, loadOp: 'clear', storeOp: 'store', clearValue: [0, 0, 0, 0] },
+    ],
+    ...(timestamps ? { timestampWrites: { querySet: timestamps, beginningOfPassWriteIndex: 0, endOfPassWriteIndex: 1 } } : {}),
+  });
+  tracePass.setViewport(0, 0, internalWidth, internalHeight, 0, 1);
+  tracePass.setScissorRect(0, 0, internalWidth, internalHeight);
+  tracePass.setPipeline(state.tracePipeline);
+  tracePass.setBindGroup(0, state.frameBindGroup);
+  tracePass.draw(3);
+  tracePass.end();
+
+  const skyPass = encoder.beginRenderPass({
+    label: 'sky',
+    colorAttachments: [{ view: state.skyRadiance.view, loadOp: 'clear', storeOp: 'store', clearValue: [0, 0, 0, 0] }],
+  });
+  skyPass.setPipeline(state.skyPipeline);
+  skyPass.setBindGroup(0, state.frameBindGroup);
+  skyPass.setBindGroup(1, targets.skyBindGroup);
+  skyPass.draw(3);
+  skyPass.end();
+
+  for (const stage of targets.stages) {
+    const pass = encoder.beginRenderPass({
+      label: 'bloom',
+      colorAttachments: [{ view: stage.target.view, loadOp: stage.additive ? 'load' : 'clear', storeOp: 'store', clearValue: [0, 0, 0, 0] }],
+    });
+    pass.setPipeline(stage.additive ? state.bloomUpPipeline : state.bloomDownPipeline);
+    pass.setBindGroup(0, state.frameBindGroup);
+    pass.setBindGroup(1, stage.bindGroup);
+    pass.draw(3);
+    pass.end();
+  }
+
+  const compositePass = encoder.beginRenderPass({
+    label: 'composite',
+    colorAttachments: [{ view: outputView, loadOp: 'clear', storeOp: 'store', clearValue: [0, 0, 0, 1] }],
+    ...(timestamps ? { timestampWrites: { querySet: timestamps, beginningOfPassWriteIndex: 2, endOfPassWriteIndex: 3 } } : {}),
+  });
+  compositePass.setPipeline(state.compositePipeline);
+  compositePass.setBindGroup(0, state.frameBindGroup);
+  compositePass.setBindGroup(1, targets.compositeBindGroup);
+  compositePass.draw(3);
+  compositePass.end();
+}
+
+function currentAnimationTime(now) {
+  if (frozenTime !== null) return frozenTime;
+  return ((now - state.startTime) / 1000) * settings.timeScale;
+}
+
+function renderFrame(now) {
+  resizeCanvasIfNeeded();
+  const outputWidth = state.canvas.width;
+  const outputHeight = state.canvas.height;
+  const scale = pinnedScale ?? state.renderScale;
+  const scaleUsed = scale;
+  const internalWidth = Math.max(16, Math.round(outputWidth * scale));
+  const internalHeight = Math.max(16, Math.round(outputHeight * scale));
+  ensureRenderTargets(internalWidth, internalHeight, outputWidth, outputHeight, scale);
+  updateUniformsForView(outputWidth, outputHeight, internalWidth, internalHeight, currentAnimationTime(now));
+  setUniform('renderTargetSize', [state.renderTargets.width, state.renderTargets.height]);
+  const device = state.device;
+  device.queue.writeBuffer(state.frameBuffer, 0, uniformData);
+  const encoder = device.createCommandEncoder({ label: 'frame' });
+  encodeFrame(encoder, state.context.getCurrentTexture().createView(), internalWidth, internalHeight);
+  let readback = null;
+  if (state.timestampsSupported && state.queryReadbackPool.length) {
+    readback = state.queryReadbackPool.pop();
+    encoder.resolveQuerySet(state.querySet, 0, 4, state.queryResolveBuffer, 0);
+    encoder.copyBufferToBuffer(state.queryResolveBuffer, 0, readback, 0, 32);
+  }
+  const exposureProbe = state.exposureReadbackBusy || state.frameIndex % 2 ? null : encodeExposureProbe(encoder);
+  const submittedAt = performance.now();
+  device.queue.submit([encoder.finish()]);
+  state.frameIndex++;
+  if (exposureProbe) readExposureProbe(exposureProbe, now);
+  const completion = readback
+    ? readback.mapAsync(GPUMapMode.READ).then(() => {
+      const times = new BigInt64Array(readback.getMappedRange().slice(0));
+      readback.unmap();
+      state.queryReadbackPool.push(readback);
+      const traceMs = Number(times[1] - times[0]) / 1e6;
+      const totalMs = Number(times[3] - times[0]) / 1e6;
+      return { totalMs, traceMs, scale: scaleUsed };
+    })
+    : device.queue.onSubmittedWorkDone().then(() => ({ totalMs: performance.now() - submittedAt, traceMs: NaN, scale: scaleUsed }));
+  return completion.then((timing) => {
+    if (Number.isFinite(timing.totalMs) && timing.totalMs > 0 && timing.totalMs < 1000) {
+      state.lastGpuMs = timing.totalMs;
+      state.lastTraceMs = timing.traceMs;
+      adaptRenderScale(timing);
+    }
+    return timing;
+  });
+}
+
+const EXPOSURE_PROBE_LEVEL = 3;
+const EXPOSURE_HISTOGRAM_BINS = 96;
+const EXPOSURE_HISTOGRAM_MIN_LOG2 = -16;
+const EXPOSURE_HISTOGRAM_BINS_PER_STOP = 4;
+
+function encodeExposureProbe(encoder) {
+  const level = state.bloomLevels[Math.min(EXPOSURE_PROBE_LEVEL, state.bloomLevels.length - 1)];
+  const bytesPerRow = Math.ceil((level.width * 8) / 256) * 256;
+  const size = bytesPerRow * level.height;
+  if (!state.exposureReadbackBuffer || state.exposureReadbackBuffer.size !== size) {
+    state.exposureReadbackBuffer?.destroy();
+    state.exposureReadbackBuffer = state.device.createBuffer({ size, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+  }
+  encoder.copyTextureToBuffer({ texture: level.texture }, { buffer: state.exposureReadbackBuffer, bytesPerRow }, [level.width, level.height]);
+  state.exposureReadbackBusy = true;
+  return { buffer: state.exposureReadbackBuffer, width: level.width, height: level.height, bytesPerRow };
+}
+
+function halfToFloat(bits) {
+  const exponent = (bits >> 10) & 0x1f;
+  const fraction = bits & 0x3ff;
+  const sign = bits & 0x8000 ? -1 : 1;
+  if (exponent === 0) return sign * 5.960464477539063e-8 * fraction;
+  if (exponent === 31) return fraction ? 0 : sign * 65504;
+  return sign * Math.pow(2, exponent - 15) * (1 + fraction / 1024);
+}
+
+function brightLuminanceFromProbe(halves, probe) {
+  const histogram = new Uint32Array(EXPOSURE_HISTOGRAM_BINS);
+  let count = 0;
+  for (let y = 0; y < probe.height; y++) {
+    const rowStart = (y * probe.bytesPerRow) / 2;
+    for (let x = 0; x < probe.width; x++) {
+      const base = rowStart + x * 4;
+      const value = 0.2126 * halfToFloat(halves[base]) + 0.7152 * halfToFloat(halves[base + 1]) + 0.0722 * halfToFloat(halves[base + 2]);
+      const bin = Math.floor((Math.log2(Math.max(value, 1e-9)) - EXPOSURE_HISTOGRAM_MIN_LOG2) * EXPOSURE_HISTOGRAM_BINS_PER_STOP);
+      histogram[clampNumber(bin, 0, EXPOSURE_HISTOGRAM_BINS - 1)]++;
+      count++;
+    }
+  }
+  const binLog2 = (bin) => EXPOSURE_HISTOGRAM_MIN_LOG2 + (bin + 0.5) / EXPOSURE_HISTOGRAM_BINS_PER_STOP;
+  let remaining = Math.max(1, Math.floor(count * (1 - AUTO_EXPOSURE_PERCENTILE)));
+  let peakLog2 = EXPOSURE_HISTOGRAM_MIN_LOG2;
+  for (let bin = EXPOSURE_HISTOGRAM_BINS - 1; bin >= 0; bin--) {
+    remaining -= histogram[bin];
+    if (remaining <= 0) { peakLog2 = binLog2(bin); break; }
+  }
+  const floorLog2 = peakLog2 - AUTO_EXPOSURE_DISK_RANGE_STOPS;
+  let weightedLog2 = 0;
+  let diskCount = 0;
+  for (let bin = 0; bin < EXPOSURE_HISTOGRAM_BINS; bin++) {
+    if (binLog2(bin) < floorLog2) continue;
+    weightedLog2 += histogram[bin] * binLog2(bin);
+    diskCount += histogram[bin];
+  }
+  return { peak: Math.pow(2, peakLog2), diskAverage: diskCount ? Math.pow(2, weightedLog2 / diskCount) : 0 };
+}
+
+function readExposureProbe(probe, now) {
+  probe.buffer.mapAsync(GPUMapMode.READ).then(() => {
+    const halves = new Uint16Array(probe.buffer.getMappedRange().slice(0));
+    probe.buffer.unmap();
+    state.exposureReadbackBusy = false;
+    const { peak, diskAverage } = brightLuminanceFromProbe(halves, probe);
+    const forMidtones = AUTO_EXPOSURE_MIDTONE_KEY / Math.max(diskAverage, 1e-5);
+    const forHighlights = AUTO_EXPOSURE_HIGHLIGHT_LIMIT / Math.max(peak, 1e-5);
+    const target = clampNumber(Math.min(forMidtones, forHighlights), AUTO_EXPOSURE_MIN, AUTO_EXPOSURE_MAX);
+    const elapsed = state.lastExposureUpdate ? Math.min((now - state.lastExposureUpdate) / 1000, 0.25) : 1;
+    state.lastExposureUpdate = now;
+    const settle = frozenTime !== null ? 1 : 1 - Math.exp(-elapsed / AUTO_EXPOSURE_SECONDS);
+    state.autoExposure = Math.exp(Math.log(state.autoExposure) + (Math.log(target) - Math.log(state.autoExposure)) * settle);
+  }).catch(() => { state.exposureReadbackBusy = false; });
+}
+
+function adaptRenderScale(timing) {
+  if (pinnedScale !== null) return;
+  const scaleUsed = timing.scale;
+  const totalMs = timing.totalMs;
+  const traceMs = Number.isFinite(timing.traceMs) ? timing.traceMs : totalMs * 0.85;
+  const fixedMs = Math.max(totalMs - traceMs, 0.2);
+  const traceAtFullScaleMs = Math.max(traceMs / (scaleUsed * scaleUsed), 0.5);
+  const blend = (previous, value, weight) => (previous === undefined ? value : previous + (value - previous) * weight);
+  state.fixedMsSmoothed = blend(state.fixedMsSmoothed, fixedMs, 0.2);
+  state.traceAtFullScaleSmoothed = blend(state.traceAtFullScaleSmoothed, traceAtFullScaleMs, 0.2);
+  state.totalMsSmoothed = blend(state.totalMsSmoothed, totalMs, 0.15);
+  state.framesSinceScaleChange++;
+  const minScale = 0.3;
+  const maxScale = 1.0;
+  const current = state.renderScale;
+  const idealFor = (fixed, traceFull) => Math.sqrt(Math.max(GPU_TARGET_MS - fixed, 1) / traceFull);
+  let next = current;
+  if (totalMs > GPU_TARGET_MS * 1.15 && state.framesSinceScaleChange > 1) {
+    next = current * clampNumber(idealFor(fixedMs, traceAtFullScaleMs) / current, 0.85, 0.95);
+  } else if (state.framesSinceScaleChange >= 12) {
+    const ideal = idealFor(state.fixedMsSmoothed, state.traceAtFullScaleSmoothed);
+    if (state.totalMsSmoothed > GPU_TARGET_MS * 1.05) next = Math.max(ideal, current * 0.92);
+    else if (state.totalMsSmoothed < GPU_TARGET_MS) next = current * clampNumber(ideal / current, 1.015, 1.04);
+  }
+  next = Math.round(clampNumber(next, minScale, maxScale) * 200) / 200;
+  if (next !== state.renderScale) {
+    state.renderScale = next;
+    state.framesSinceScaleChange = 0;
+  }
+  const idealAtCurrent = idealFor(state.fixedMsSmoothed, state.traceAtFullScaleSmoothed);
+  if (state.renderScale <= minScale + 1e-3 && state.totalMsSmoothed > GPU_TARGET_MS * 1.05) {
+    state.angleScale = Math.min(state.angleScale * 1.03, 1.8);
+  } else if (idealAtCurrent > minScale * 1.15 || state.totalMsSmoothed < GPU_TARGET_MS * 0.85) {
+    state.angleScale = Math.max(state.angleScale / 1.03, 1);
+  }
+}
+
+function moveCamera(dt) {
+  const keys = input.keys;
+  const turn = (keys.has('arrowright') ? 1 : 0) - (keys.has('arrowleft') ? 1 : 0);
+  const lift = (keys.has('arrowup') ? 1 : 0) - (keys.has('arrowdown') ? 1 : 0);
+  camera.orbitAzimuth += turn * dt * ARROW_KEY_RADIANS_PER_SECOND - input.dragDelta[0] * DRAG_RADIANS_PER_PIXEL;
+  camera.orbitElevation = clampNumber(
+    camera.orbitElevation + lift * dt * ARROW_KEY_RADIANS_PER_SECOND + input.dragDelta[1] * DRAG_RADIANS_PER_PIXEL,
+    -ORBIT_ELEVATION_LIMIT, ORBIT_ELEVATION_LIMIT);
+  zoomCameraBy(0);
+  input.dragDelta = [0, 0];
+}
+
+function toggleFullscreen() {
+  const element = document.documentElement;
+  const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement;
+  if (isFullscreen) {
+    (document.exitFullscreen || document.webkitExitFullscreen)?.call(document);
+  } else {
+    const request = element.requestFullscreen || element.webkitRequestFullscreen;
+    const result = request?.call(element);
+    if (result && result.catch) result.catch(() => undefined);
+  }
+}
+
+function bindInput() {
+  const canvas = state.canvas;
+  const markInteraction = () => {
+    input.lastInteraction = performance.now();
+    document.getElementById('hint').classList.add('is-hidden');
+  };
+  const pinchDistance = () => {
+    if (input.pointers.size !== 2) return 0;
+    const [first, second] = [...input.pointers.values()];
+    return Math.hypot(first[0] - second[0], first[1] - second[1]);
+  };
+  const releasePointer = (event) => {
+    input.pointers.delete(event.pointerId);
+    input.pinchDistance = pinchDistance();
+    canvas.classList.toggle('is-dragging', input.pointers.size > 0);
+  };
+  canvas.addEventListener('pointerdown', (event) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    canvas.setPointerCapture?.(event.pointerId);
+    input.pointers.set(event.pointerId, [event.clientX, event.clientY]);
+    input.pinchDistance = pinchDistance();
+    canvas.classList.add('is-dragging');
+    canvas.focus({ preventScroll: true });
+    markInteraction();
+  });
+  canvas.addEventListener('pointermove', (event) => {
+    const previous = input.pointers.get(event.pointerId);
+    if (!previous) return;
+    const current = [event.clientX, event.clientY];
+    input.pointers.set(event.pointerId, current);
+    if (input.pointers.size === 1) {
+      input.dragDelta[0] += current[0] - previous[0];
+      input.dragDelta[1] += current[1] - previous[1];
+    } else {
+      const distance = pinchDistance();
+      if (input.pinchDistance > 0 && distance > 0) zoomCameraBy(Math.log(input.pinchDistance / distance));
+      input.pinchDistance = distance;
+    }
+  });
+  canvas.addEventListener('pointerup', releasePointer);
+  canvas.addEventListener('pointercancel', releasePointer);
+  canvas.addEventListener('wheel', (event) => {
+    event.preventDefault();
+    markInteraction();
+    const pixels = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1);
+    zoomCameraBy(pixels * (event.ctrlKey ? PINCH_WHEEL_ZOOM_PER_PIXEL : WHEEL_ZOOM_PER_PIXEL));
+  }, { passive: false });
+  window.addEventListener('keydown', (event) => {
+    const key = event.key.toLowerCase();
+    if (event.target instanceof HTMLInputElement && !['h', 'f'].includes(key)) return;
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+    if (key === 'h') {
+      document.getElementById('panel').classList.toggle('is-hidden');
+      markInteraction();
+      return;
+    }
+    if (key === 'f' && !event.repeat) {
+      toggleFullscreen();
+      markInteraction();
+      return;
+    }
+    if (key === '+' || key === '=' || key === '-' || key === '_') {
+      zoomCameraBy(key === '-' || key === '_' ? KEY_ZOOM_STEP : -KEY_ZOOM_STEP);
+      markInteraction();
+      return;
+    }
+    if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown'].includes(key)) {
+      event.preventDefault();
+      input.keys.add(key);
+      markInteraction();
+    }
+  });
+  window.addEventListener('keyup', (event) => input.keys.delete(event.key.toLowerCase()));
+  window.addEventListener('blur', () => input.keys.clear());
+}
+
+function bindPanel() {
+  const spin = document.getElementById('spin');
+  const temperature = document.getElementById('temperature');
+  const tilt = document.getElementById('tilt');
+  const steps = document.getElementById('steps');
+  const exposure = document.getElementById('exposure');
+  const physical = document.getElementById('color-physical');
+  const cinematic = document.getElementById('color-cinematic');
+  const temperatureFromSlider = (t) => TEMPERATURE_SLIDER_MIN * Math.pow(TEMPERATURE_SLIDER_MAX / TEMPERATURE_SLIDER_MIN, t);
+  const sliderFromTemperature = (kelvin) => Math.log(kelvin / TEMPERATURE_SLIDER_MIN) / Math.log(TEMPERATURE_SLIDER_MAX / TEMPERATURE_SLIDER_MIN);
+  const refresh = () => {
+    spin.value = settings.spin;
+    temperature.value = sliderFromTemperature(settings.diskTemperature);
+    tilt.value = settings.diskTilt;
+    steps.value = settings.maxSteps;
+    exposure.value = settings.exposure;
+    document.getElementById('spin-value').textContent = `a = ${settings.spin.toFixed(3)}`;
+    document.getElementById('temperature-value').textContent = `${Math.round(settings.diskTemperature / 50) * 50} K`;
+    document.getElementById('tilt-value').textContent = `${Math.round(settings.diskTilt)}°`;
+    document.getElementById('steps-value').textContent = `${settings.maxSteps}`;
+    document.getElementById('exposure-value').textContent = `${settings.exposure >= 0 ? '+' : ''}${settings.exposure.toFixed(1)} EV`;
+    physical.setAttribute('aria-pressed', String(settings.colorMode === 'physical'));
+    cinematic.setAttribute('aria-pressed', String(settings.colorMode === 'cinematic'));
+    document.documentElement.style.setProperty('--disk-color', blackbodyCssColor(state.blackbodyTable, Math.max(settings.diskTemperature, 2500)));
+  };
+  spin.addEventListener('input', () => {
+    settings.spin = Number(spin.value);
+    state.diskModel = pageThorneDiskModel(settings.spin);
+    refresh();
+  });
+  temperature.addEventListener('input', () => { settings.diskTemperature = temperatureFromSlider(Number(temperature.value)); refresh(); });
+  tilt.addEventListener('input', () => { settings.diskTilt = Number(tilt.value); refresh(); });
+  steps.addEventListener('input', () => { settings.maxSteps = Number(steps.value); refresh(); });
+  exposure.addEventListener('input', () => { settings.exposure = Number(exposure.value); refresh(); });
+  physical.addEventListener('click', () => { settings.colorMode = 'physical'; refresh(); });
+  cinematic.addEventListener('click', () => { settings.colorMode = 'cinematic'; refresh(); });
+  state.refreshPanel = refresh;
+  refresh();
+}
+
+function updateReadout(now) {
+  state.fpsWindow.push(now);
+  while (state.fpsWindow.length && now - state.fpsWindow[0] > 1000) state.fpsWindow.shift();
+  if (now - (state.lastReadoutUpdate ?? 0) < 250) return;
+  state.lastReadoutUpdate = now;
+  document.getElementById('fps').textContent = String(state.fpsWindow.length);
+  document.getElementById('gpu-time').textContent = state.lastGpuMs ? state.lastGpuMs.toFixed(1) : '--';
+  const targets = state.renderTargets;
+  const shownScale = pinnedScale ?? state.renderScale;
+  if (targets) document.getElementById('render-scale').textContent = `${Math.round(shownScale * 100)}% resolution, ${Math.round(state.canvas.width * shownScale)}×${Math.round(state.canvas.height * shownScale)}`;
+}
+
+function onAnimationFrame(now) {
+  requestAnimationFrame(onAnimationFrame);
+  if (state.previousCallback !== undefined) {
+    state.displayIntervals.push(now - state.previousCallback);
+    if (state.displayIntervals.length > 40) state.displayIntervals.shift();
+  }
+  state.previousCallback = now;
+  if (state.automationActive) return;
+  if (state.callbackCount % 30 === 0 && state.displayIntervals.length) {
+    const sorted = state.displayIntervals.slice().sort((a, b) => a - b);
+    state.displayInterval = sorted[sorted.length >> 1];
+  }
+  const callbacksPerFrame = Math.max(1, Math.round(TARGET_FRAME_MS / Math.max(state.displayInterval ?? TARGET_FRAME_MS, 1)));
+  state.callbackCount++;
+  if (state.callbackCount % callbacksPerFrame !== 0) return;
+  const dt = Math.min((now - (state.lastRenderTime || now)) / 1000, 0.1);
+  state.lastRenderTime = now;
+  moveCamera(dt);
+  renderFrame(now);
+  updateReadout(now);
+}
+
+function readSettingsSnapshot() {
+  return { ...settings, camera: { ...camera }, renderScale: pinnedScale ?? state.renderScale, angleScale: state.angleScale };
+}
+
+async function runSelfTestRays({ spin, radius, thetaDegrees, phiDegrees, directions, maxSteps = 4000 }) {
+  const device = state.device;
+  if (!state.selfTestPipeline) {
+    const module = await compileShaderModule(device, 'self test', state.traceModuleCode + WGSL_SELF_TEST);
+    state.selfTestLayout = device.createBindGroupLayout({
+      entries: [
+        { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+        { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+      ],
+    });
+    state.selfTestPipeline = await device.createComputePipelineAsync({
+      layout: device.createPipelineLayout({ bindGroupLayouts: [state.frameLayout, state.selfTestLayout] }),
+      compute: { module, entryPoint: 'selfTestCompute' },
+    });
+  }
+  const savedUniforms = uniformData.slice();
+  const theta = thetaDegrees * DEGREES;
+  const phi = phiDegrees * DEGREES;
+  const spheroidal = Math.sqrt(radius * radius + spin * spin);
+  const positionBh = [spheroidal * Math.sin(theta) * Math.cos(phi), spheroidal * Math.sin(theta) * Math.sin(phi), radius * Math.cos(theta)];
+  const savedModel = state.diskModel;
+  state.diskModel = pageThorneDiskModel(spin);
+  writeCameraUniforms(spin, cameraFrame(spin, positionBh), { forward: [0, 0, 1], right: [1, 0, 0], up: [0, 1, 0] }, { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] });
+  writeDiskUniforms();
+  setUniform('stepAngleNear', 0.1);
+  setUniform('stepAngleFar', 0.35);
+  setUniform('stepRadialSpan', 0.1);
+  setUniform('maxSteps', maxSteps);
+  setUniform('diskOuterRadius', 1e9);
+  setUniform('diskInnerRadius', 0);
+  const testUniformBuffer = device.createBuffer({ size: frameLayout.byteSize, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+  device.queue.writeBuffer(testUniformBuffer, 0, uniformData);
+  uniformData.set(savedUniforms);
+  state.diskModel = savedModel;
+  const directionData = new Float32Array(directions.length * 4);
+  directions.forEach((d, i) => directionData.set([d[0], d[1], d[2], 0], i * 4));
+  const directionBuffer = device.createBuffer({ size: directionData.byteLength, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+  device.queue.writeBuffer(directionBuffer, 0, directionData);
+  const recordBytes = directions.length * 48;
+  const recordBuffer = device.createBuffer({ size: recordBytes, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC });
+  const readBuffer = device.createBuffer({ size: recordBytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+  const encoder = device.createCommandEncoder();
+  const pass = encoder.beginComputePass();
+  pass.setPipeline(state.selfTestPipeline);
+  pass.setBindGroup(0, makeFrameBindGroup(testUniformBuffer));
+  pass.setBindGroup(1, device.createBindGroup({ layout: state.selfTestLayout, entries: [{ binding: 0, resource: { buffer: directionBuffer } }, { binding: 1, resource: { buffer: recordBuffer } }] }));
+  pass.dispatchWorkgroups(Math.ceil(directions.length / 64));
+  pass.end();
+  encoder.copyBufferToBuffer(recordBuffer, 0, readBuffer, 0, recordBytes);
+  device.queue.submit([encoder.finish()]);
+  await readBuffer.mapAsync(GPUMapMode.READ);
+  const values = Array.from(new Float32Array(readBuffer.getMappedRange()));
+  readBuffer.unmap();
+  [testUniformBuffer, directionBuffer, recordBuffer, readBuffer].forEach((buffer) => buffer.destroy());
+  return directions.map((_, i) => {
+    const base = i * 12;
+    return {
+      outcome: ['captured', 'escaped', 'maxsteps', 'opaque'][values[base]],
+      steps: values[base + 1],
+      crossings: values[base + 2],
+      skyRedshift: values[base + 3],
+      direction: values.slice(base + 4, base + 7),
+      firstCrossing: { r: values[base + 8], phi: values[base + 9], t: values[base + 10], mu: values[base + 11] },
+    };
+  });
+}
+
+function exposeAutomation(readyPromise) {
+  window.blackHole = {
+    ready: readyPromise,
+    settings,
+    camera,
+    snapshot: readSettingsSnapshot,
+    set(partial) {
+      Object.assign(settings, partial);
+      if ('spin' in partial) state.diskModel = pageThorneDiskModel(settings.spin);
+      state.refreshPanel?.();
+    },
+    setCamera(partial) {
+      if (partial.orbitDistance !== undefined) camera.orbitDistance = partial.orbitDistance;
+      if (partial.orbitAzimuthDegrees !== undefined) camera.orbitAzimuth = partial.orbitAzimuthDegrees * DEGREES;
+      if (partial.orbitElevationDegrees !== undefined) camera.orbitElevation = partial.orbitElevationDegrees * DEGREES;
+    },
+    showPanel(visible) { document.getElementById('panel').classList.toggle('is-hidden', !visible); },
+    hideHint() { document.getElementById('hint').classList.add('is-hidden'); },
+    async renderFrames(count = 1, { at } = {}) {
+      state.automationActive = true;
+      let timing = null;
+      for (let i = 0; i < count; i++) {
+        timing = await renderFrame(at ?? performance.now());
+        updateReadout(performance.now());
+      }
+      state.automationActive = false;
+      return { timing, renderScale: pinnedScale ?? state.renderScale, size: [Math.round(state.canvas.width * (pinnedScale ?? state.renderScale)), Math.round(state.canvas.height * (pinnedScale ?? state.renderScale))] };
+    },
+    async benchmark({ frames = 240, warmup = 30, animate = true, paced = true } = {}) {
+      state.automationActive = true;
+      const gpuTimes = [];
+      const traceTimes = [];
+      const scales = [];
+      const wallIntervals = [];
+      let previous = performance.now();
+      for (let i = 0; i < warmup + frames; i++) {
+        if (paced) await new Promise((resolve) => requestAnimationFrame(resolve));
+        const now = performance.now();
+        const timing = await renderFrame(animate ? now : state.startTime);
+        if (i >= warmup) {
+          gpuTimes.push(timing.totalMs);
+          traceTimes.push(timing.traceMs);
+          scales.push(pinnedScale ?? state.renderScale);
+          wallIntervals.push(now - previous);
+        }
+        previous = now;
+      }
+      state.automationActive = false;
+      const finalScale = pinnedScale ?? state.renderScale;
+      return { gpuTimes, traceTimes, scales, wallIntervals, timestamps: state.timestampsSupported, output: [state.canvas.width, state.canvas.height], internal: [Math.round(state.canvas.width * finalScale), Math.round(state.canvas.height * finalScale)], adapter: state.adapterInfo };
+    },
+    traceTestRays: runSelfTestRays,
+    stats() {
+      return { autoExposure: state.autoExposure, renderScale: pinnedScale ?? state.renderScale, angleScale: state.angleScale, lastGpuMs: state.lastGpuMs, lastTraceMs: state.lastTraceMs, renderTargetGeneration: state.renderTargetGeneration, output: [state.canvas.width, state.canvas.height], timestamps: state.timestampsSupported, adapter: state.adapterInfo };
+    },
+  };
+}
+
+async function main() {
+  bindPanel();
+  const panelStartsOpen = searchParams.get('panel') !== '0' && window.innerWidth >= PANEL_MIN_START_WIDTH;
+  document.getElementById('panel').classList.toggle('is-hidden', !panelStartsOpen);
+  const hint = document.getElementById('hint');
+  if (panelStartsOpen || hideHint) {
+    hint.hidden = true;
+  } else {
+    hint.classList.remove('is-hidden');
+    setTimeout(() => hint.classList.add('is-hidden'), 8000);
+  }
+  const ok = await createRenderer();
+  if (!ok) return false;
+  bindInput();
+  requestAnimationFrame(onAnimationFrame);
+  return true;
+}
+
+const ready = main().catch((error) => {
+  console.error(error);
+  showNotice(`<h1>The renderer failed to start</h1><p>${String(error.message || error).replace(/</g, '&lt;')}</p><p>Try the latest Chrome, or reload the page.</p>`);
+  return false;
+});
+exposeAutomation(ready);
+</script>
+</body>
+</html>
