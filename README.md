@@ -2,7 +2,7 @@
 
 A real-time renderer of a spinning black hole, written in raw WebGPU as one self-contained `index.html`: no engine, no libraries, no build step.
 
-**Live:** https://kerr-black-hole-roan.vercel.app
+**Live:** https://kerr-black-hole-roan.vercel.app (every push to `main` deploys there automatically)
 
 ![Opening view](screenshots/opening-view.jpg)
 
