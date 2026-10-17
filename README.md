@@ -2,15 +2,15 @@
 
 A real-time renderer of a spinning black hole, built from scratch on raw WebGPU without an engine or rendering library. Every pixel traces its light ray backwards through the curved spacetime of a Kerr black hole. The dark shadow, the thin photon ring, the far side of the accretion disk bending over and under the hole, and the lensed stars all come out of that ray tracing rather than being painted on. You orbit the hole with the mouse.
 
-**Live:** https://kerr-black-hole-roan.vercel.app (every push to `main` deploys there automatically)
+**Live:** https://kerr-black-hole-roan.vercel.app
 
 ![Opening view](screenshots/opening-view.jpg)
 
 ## Run it
 
-You need a browser with WebGPU and a reasonably capable GPU. It was built and tested in Chrome on an M3 Pro MacBook Pro. Safari 26 on macOS 26 has WebGPU on by default and older Safari needs the WebGPU feature flag, but Safari has not been tested. Without WebGPU, the page shows a message saying which browser to use.
+You need a browser with WebGPU and a reasonably capable GPU. It was built and tested in Chrome on an M3 Pro MacBook Pro.
 
-Open `index.html` directly in the browser. It is one self-contained 119 KB file with no build step. It works from `file://` and makes no network requests when opened from disk; the deployed site also loads Vercel Web Analytics.
+Open `index.html` directly in the browser. It is one self-contained 119 KB file with no build step. It works straight from `file://`.
 
 ## Controls
 
@@ -21,13 +21,10 @@ Open `index.html` directly in the browser. It is one self-contained 119 KB file 
 | `F` | Full screen |
 | `H` | Hide or show the settings panel: spin, disk temperature, disk tilt, ray steps, exposure, physical or cinematic color, FPS and GPU time |
 
-The page opens on a wide 110° view with the settings panel showing. On phone-sized screens the panel starts hidden and a short hint explains the gestures.
-
 URL parameters help with testing:
 - `cam=distance,azimuthDeg,elevationDeg` places the camera and `fov=deg` sets the lens.
 - `steps=n` sets the ray steps and `scale=0.5` pins the ray-tracing resolution.
 - `time=s` freezes the animation and `debug=1` shows a heat map of steps per pixel.
-- `panel=0` and `hint=0` hide the interface.
 - `spin`, `temperature`, `tilt`, `exposure` and `color=cinematic` preset the panel.
 
 ## How it works
@@ -94,11 +91,9 @@ On an M3 Pro with an 18-core GPU, at the 16-inch MacBook Pro's native 3456 by 22
 - GPU time at the 99th percentile was between 12.5 and 12.8 ms. This covers a run at maximum spin and one at the 14-inch size.
 - Those flights ran at 192 ray steps. With the current default of 48, the opening view takes about 7 ms of GPU time per frame at full resolution.
 
-Other programs using the GPU push these times up. The resolution controller absorbs that by lowering the internal resolution.
-
 ## How it's checked
 
-Everything in `tools/` drives the real page in headless Chrome on the GPU. The scripts need Node and Google Chrome, and nothing to install.
+Everything in `tools/` drives the real page in headless Chrome on the GPU.
 - **Physics self-test:** runs the shipped shader against double-precision references. Rays agree with an independent Boyer–Lindquist integrator to a median of about 0.0002 radians, and the shadow outline matches Bardeen's exact formula to within 0.0008 M at spins 0, 0.9 and 0.998.
 - **Input test:** drives real mouse, wheel, touch and keyboard events.
 - **Screenshots and benchmarks:** render fixed views and measure GPU time per frame and the time between frames.
@@ -107,7 +102,7 @@ See [tools/README.md](tools/README.md) for each script.
 
 ## Known limitations
 
-- Safari is untested; Chrome is the only browser checked.
+- Only Chrome has been tested.
 - The disk is geometrically thin: the ray tracer treats it as a plane and uses thickness only for shading. There is no corona or jet, and the disk does not light itself.
 - The camera is a static observer even while it orbits, so its own motion adds no aberration or Doppler shift.
 - Zoom moves the camera while the lens stays at 110°, so close views stretch strongly toward the screen edges.
@@ -135,5 +130,3 @@ I built this with Claude Code (Opus 5.5).
 | `index.html` | The whole renderer: page, settings panel, WGSL shaders and JavaScript |
 | `tools/` | Headless Chrome checks: physics self-test, double-precision Kerr reference, input test, screenshots, benchmarks and sky measurement |
 | `screenshots/` | README image and reference views |
-| `vercel.json` | Vercel build that publishes only `index.html` |
-| `CLAUDE.md` | Project notes for Claude Code |
