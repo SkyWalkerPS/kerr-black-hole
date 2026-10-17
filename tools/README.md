@@ -1,6 +1,6 @@
 # Checks for the black hole renderer
 
-Everything here drives the real `../index.html` in headless Chrome on this Mac's GPU, or checks the physics in double precision with plain Node. No install is needed: the Chrome driver (`cdp.mjs`) uses Node's built-in WebSocket. `puppeteer-core` in `package.json` is an unused fallback.
+Everything here drives the real `../index.html` in headless Chrome on the machine's GPU, or checks the physics in double precision with plain Node. Nothing to install: the Chrome driver (`cdp.mjs`) uses Node's built-in WebSocket. It needs Node and Google Chrome.
 
 Run from this folder.
 
@@ -9,7 +9,7 @@ Run from this folder.
 | `node geodesic-lab.mjs [schwarzschild\|kerr\|shadow\|cost\|all]` | The ray integrator in double precision, against three independent references: the exact Schwarzschild bending integral, a separate Boyer-Lindquist Hamiltonian integrator, and Bardeen's analytic shadow outline. Also reports steps per pixel. |
 | `node selftest.mjs` | The shipped WGSL integrator, run through a compute shader in the page, against those same references. Exits non-zero on failure. |
 | `node interact.mjs <out-dir>` | Real keyboard, mouse, wheel and touch input. Checks the opening view (orbit 25.6 M, 5.8°, 110° lens, panel open, no hint); that fly keys do nothing; drag to orbit; scroll, + − and two-finger pinch to zoom; arrow keys; H for the panel; panel sliders; and a phone-sized screen starting with the panel hidden and a gesture hint. Also checks the "needs WebGPU" message. |
-| `node measure-sky.mjs <shot.png> [...]` | Reports a screenshot's dark-sky black level (median of the darkest quarter of 96 px tiles, 0–255), star pixel coverage and tile-to-tile steps. Works on the user's screenshots too. |
+| `node measure-sky.mjs <shot.png> [...]` | Reports a screenshot's dark-sky black level (median of the darkest quarter of 96 px tiles, 0–255), star pixel coverage and tile-to-tile steps. Works on any screenshot, not just ones from these tools. |
 | `node shoot.mjs <out-dir> [view ...]` | Screenshots of named camera views. Env: `VIEWPORT=1728x1117 DPR=2 SCALE=0.75 QUERY=... PANEL=1 CLIP=x,y,w,h`. The panel is hidden (`panel=0`) unless `PANEL=1`. |
 | `node bench.mjs [view ...]` | GPU time per frame from timestamp queries for fixed views, with the page's adaptive resolution running. Env: `UNPACED=1` keeps the GPU busy for stable profiling; `SCALE=` pins the resolution. |
 | `node flight.mjs` | A 30-second camera flight (far, close dive, skim the disk, orbit) at the 16-inch MacBook Pro's native 3456x2234. Reports frame intervals, GPU time percentiles and frames over the 16.7 ms budget. Env: `SPIN=0.998`, `VIEWPORT=1512x982` (14-inch). |

@@ -2,8 +2,5 @@
   "name": "blackhole-tools",
   "private": true,
   "type": "module",
-  "description": "Headless Chrome harness: screenshots, physics self-test and frame-time benchmarks for ../index.html",
-  "dependencies": {
-    "puppeteer-core": "^24.9.0"
-  }
+  "description": "Headless Chrome harness: screenshots, physics self-test and frame-time benchmarks for ../index.html"
 }
