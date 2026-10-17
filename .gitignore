@@ -4,3 +4,5 @@ dist/
 .DS_Store
 projectDocs
 .cursor/
+.vercel
+.env*
