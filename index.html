@@ -163,6 +163,7 @@ const settings = {
   starBrightness: numberParam('stars', 1),
   fieldOfViewDegrees: numberParam('fov', 110),
   timeScale: numberParam('timescale', 12),
+  loopSeconds: numberParam('loop', 0),
   debugView: numberParam('debug', 0),
   compositeFeatureMask: numberParam('features', 15),
 };
@@ -380,6 +381,7 @@ const FRAME_UNIFORM_FIELDS = [
   ['starBrightness', 'f32'], ['vignetteStrength', 'f32'], ['debugView', 'f32'], ['cinematicLook', 'f32'],
   ['compositeFeatureMask', 'f32'], ['skyPixelAngle', 'f32'], ['skySize', 'vec2f'],
   ['horizonW', 'f32'], ['diskZoneW', 'f32'], ['renderTargetSize', 'vec2f'],
+  ['turbulenceLoopPeriod', 'f32'],
 ];
 
 function layoutUniformStruct(structName, fields) {
@@ -737,14 +739,18 @@ fn diskTurbulence(radius: f32, azimuth: f32, time: f32, detailLevel: f32) -> vec
     let zoneIndex = zoneBase + f32(zone);
     let zoneWeight = select(1.0 - zoneBlend, zoneBlend, zone == 1);
     let zoneRadius = frame.diskInnerRadius * exp2(zoneIndex / TURBULENCE_ZONES_PER_OCTAVE);
-    let lifetime = TAU * TURBULENCE_LIFETIME_ORBITS * (zoneRadius * sqrt(zoneRadius) + frame.spin);
+    let naturalLifetime = TAU * TURBULENCE_LIFETIME_ORBITS * (zoneRadius * sqrt(zoneRadius) + frame.spin);
+    let looping = frame.turbulenceLoopPeriod > 0.0;
+    let cyclesPerLoop = max(round(frame.turbulenceLoopPeriod / naturalLifetime), 1.0);
+    let lifetime = select(naturalLifetime, frame.turbulenceLoopPeriod / cyclesPerLoop, looping);
     let zonePhase = time / lifetime + zoneIndex * 0.381966;
     for (var layer = 0; layer < 2; layer++) {
       let layerPhase = zonePhase + 0.5 * f32(layer);
       let age = fract(layerPhase);
       let weight = zoneWeight * (1.0 - abs(2.0 * age - 1.0));
       let advectedAzimuth = azimuth - orbitalRate * age * lifetime + TURBULENCE_SPIRAL_PITCH * logRadius;
-      let coordinates = vec2f(advectedAzimuth * (1.0 / TAU), logRadius * TURBULENCE_RADIAL_SCALE) + generationOffset(floor(layerPhase), layer + 2 * i32(zoneIndex));
+      let generation = select(floor(layerPhase), floor(layerPhase) - cyclesPerLoop * floor(floor(layerPhase) / cyclesPerLoop), looping);
+      let coordinates = vec2f(advectedAzimuth * (1.0 / TAU), logRadius * TURBULENCE_RADIAL_SCALE) + generationOffset(generation, layer + 2 * i32(zoneIndex));
       blended += weight * textureSampleLevel(diskNoiseTexture, repeatSampler, coordinates, detailLevel);
       weightSquares += weight * weight;
     }
@@ -1563,6 +1569,7 @@ function writeViewUniforms(outputWidth, outputHeight, internalWidth, internalHei
   setUniform('skySize', [skyLevel?.width ?? 1, skyLevel?.height ?? 1]);
   setUniform('skyPixelAngle', (2 * tanHalf) / (skyLevel?.height ?? outputHeight));
   setUniform('diskTime', time);
+  setUniform('turbulenceLoopPeriod', settings.loopSeconds * settings.timeScale);
   setUniform('exposure', state.autoExposure * Math.pow(2, settings.exposure));
   setUniform('bloomStrength', settings.bloomStrength);
   setUniform('grainStrength', settings.grainStrength);
